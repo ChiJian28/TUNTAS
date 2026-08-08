@@ -24,15 +24,26 @@ htmlcov/
 # Node
 node_modules/
 .next/
+.vercel/
 
 # Backend local / generated / tests (not for public repo)
 backend/tests/
 backend/var/
 backend/**/__pycache__/
 
+# Frontend local / agent docs / test artifacts (not for public repo)
+frontend/test-results/
+frontend/FRONTEND.md
+frontend/TEST_FRONTEND.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+frontend/**/AGENTS.md
+frontend/**/CLAUDE.md
+
 # Generated artifacts
 coverage/
 dist/
+out/
 
 # OS / editor
 .DS_Store

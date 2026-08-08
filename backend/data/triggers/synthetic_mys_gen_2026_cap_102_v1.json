@@ -1,0 +1,186 @@
+{
+  "schema_version": "v1",
+  "source": "synthetic_fallback",
+  "note": "Organiser ambank_skill_gap_trigger.json not yet provided. Cohort synthesised at n=10 for backend tests; scale to 250 when official file arrives.",
+  "request": {
+    "request_id": "MYS-GEN-2026-CAP-102",
+    "issuing_unit": "Enterprise Risk, Operations & Compliance Division",
+    "urgency": "High",
+    "target_cohort_size": 250,
+    "synthetic_cohort_size": 10,
+    "capability_domain": "Automated Fraud Detection, RegTech & Operational AI Governance",
+    "proficiency_from": 1,
+    "proficiency_to": 3,
+    "max_budget_per_employee_myr": 5000,
+    "total_budget_myr": 1250000,
+    "target_timeline": "Q3 2026",
+    "training_window": {
+      "start": "2026-07-01",
+      "end": "2026-09-30"
+    },
+    "delivery_preference": "Hybrid / Blended Workshop",
+    "regulatory_frameworks": [
+      "BNM_RMiT",
+      "BNM_AML_CFT",
+      "MY_AI_NSC07_TC17",
+      "PDPA"
+    ],
+    "min_operational_coverage_ratio": 0.70
+  },
+  "employees": [
+    {
+      "employee_ref": "EMP-SYN-001",
+      "pseudonym": "Ops-Alpha",
+      "role_code": "OPS_FRAUD_ANALYST",
+      "role_title": "Fraud Operations Analyst",
+      "unit": "Fraud Operations",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 85,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-002",
+      "pseudonym": "Ops-Bravo",
+      "role_code": "OPS_FRAUD_ANALYST",
+      "role_title": "Fraud Operations Analyst",
+      "unit": "Fraud Operations",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 90,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 2, "gap_priority": 2}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-003",
+      "pseudonym": "Cmp-Charlie",
+      "role_code": "COMPLIANCE_OFFICER",
+      "role_title": "Compliance Officer",
+      "unit": "Compliance",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 80,
+      "competency_gaps": [
+        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR112", "name": "Internal Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-004",
+      "pseudonym": "Cmp-Delta",
+      "role_code": "COMPLIANCE_OFFICER",
+      "role_title": "Compliance Officer",
+      "unit": "Compliance",
+      "location": "Penang",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 75,
+      "competency_gaps": [
+        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-005",
+      "pseudonym": "Frd-Echo",
+      "role_code": "FRAUD_INVESTIGATOR",
+      "role_title": "Fraud Investigator",
+      "unit": "Fraud Investigation",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 70,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 2, "target_level": 3, "gap_priority": 2}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-006",
+      "pseudonym": "Frd-Foxtrot",
+      "role_code": "FRAUD_INVESTIGATOR",
+      "role_title": "Fraud Investigator",
+      "unit": "Fraud Investigation",
+      "location": "Johor Bahru",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 88,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-007",
+      "pseudonym": "Cs-Golf",
+      "role_code": "CUSTOMER_SERVICE_LEAD",
+      "role_title": "Customer Service Lead",
+      "unit": "Customer Service",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 95,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 2, "gap_priority": 2},
+        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-008",
+      "pseudonym": "Cs-Hotel",
+      "role_code": "CUSTOMER_SERVICE_AGENT",
+      "role_title": "Customer Service Agent",
+      "unit": "Customer Service",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 92,
+      "competency_gaps": [
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 2, "gap_priority": 2},
+        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-009",
+      "pseudonym": "Ops-India",
+      "role_code": "OPS_RISK_SPECIALIST",
+      "role_title": "Operational Risk Specialist",
+      "unit": "Enterprise Risk",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 78,
+      "competency_gaps": [
+        {"code": "FSF_PR109", "name": "Enterprise Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR018", "name": "Data Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+      ]
+    },
+    {
+      "employee_ref": "EMP-SYN-010",
+      "pseudonym": "Reg-Juliet",
+      "role_code": "REGTECH_ANALYST",
+      "role_title": "RegTech Analyst",
+      "unit": "Operations & Compliance",
+      "location": "Kuala Lumpur",
+      "current_level": 1,
+      "target_level": 3,
+      "availability_pct": 82,
+      "competency_gaps": [
+        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
+        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1}
+      ]
+    }
+  ]
+}

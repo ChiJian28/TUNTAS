@@ -1,0 +1,26 @@
+# TUNTAS backend — pinned for demo reproducibility
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic>=2.12.5,<3.0.0
+pydantic-settings>=2.7.1,<3.0.0
+python-dotenv==1.0.1
+supabase==2.31.0
+google-genai==2.16.0
+httpx==0.28.1
+PyJWT[crypto]>=2.12.0,<3.0.0
+cryptography==44.0.0
+langgraph==1.2.10
+langgraph-checkpoint-postgres==3.1.1
+ortools==9.15.6755
+tavily-python==0.7.27
+psycopg[binary,pool]>=3.2.0
+python-multipart==0.0.20
+jinja2==3.1.5
+python-docx==1.1.2
+python-pptx==1.0.2
+openpyxl==3.1.5
+icalendar==6.1.1
+weasyprint==63.1
+pandas==2.2.3
+# MCP process uses its own venv; listed here for docs only
+# fastmcp==3.4.5

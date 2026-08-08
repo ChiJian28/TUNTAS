@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+
+  --background: #faf9f5;
+  --foreground: #141413;
+  --body: #3d3d3a;
+  --muted-foreground: #6c6a64;
+
+  --surface: #f5f0e8;
+  --surface-raised: #ffffff;
+  --surface-emphasis: #efe9de;
+  --border: #e6dfd8;
+  --border-strong: #cfc8bd;
+
+  --primary: #dc4015;
+  --primary-hover: #c03812;
+  --primary-active: #a33010;
+  --primary-soft: #fdeee9;
+  --primary-foreground: #ffffff;
+  --link: #b83512;
+  --focus-ring: rgba(220, 64, 21, 0.28);
+
+  --success: #2f7d4a;
+  --success-soft: #edf7f0;
+  --warning: #956400;
+  --warning-soft: #fff4d6;
+  --evidence: #2f5f9f;
+  --evidence-soft: #eef4fb;
+  --destructive: #9f1d20;
+  --destructive-soft: #fff0f0;
+
+  --code-background: #181715;
+  --code-foreground: #f7f4ed;
+
+  --font-display: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+
+  --sidebar-width: 232px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-body: var(--body);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-emphasis: var(--surface-emphasis);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-active: var(--primary-active);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-link: var(--link);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-evidence: var(--evidence);
+  --color-evidence-soft: var(--evidence-soft);
+  --color-destructive: var(--destructive);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-code-background: var(--code-background);
+  --color-code-foreground: var(--code-foreground);
+  --font-sans: var(--font-inter), var(--font-sans);
+  --font-mono: var(--font-jetbrains), var(--font-mono);
+  --font-display: var(--font-newsreader), var(--font-display);
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter), var(--font-sans);
+  min-height: 100%;
+}
+
+body {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--body);
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: var(--font-newsreader), var(--font-display);
+  color: var(--foreground);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.font-mono,
+code,
+kbd,
+pre {
+  font-family: var(--font-jetbrains), var(--font-mono);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Must live in @layer base — unlayered `a { color }` beats Tailwind utilities
+   and was forcing Button-asChild Links to keep red text over text-white. */
+@layer base {
+  a {
+    color: var(--link);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+*:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 0%,
+    var(--surface-emphasis) 50%,
+    var(--surface) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

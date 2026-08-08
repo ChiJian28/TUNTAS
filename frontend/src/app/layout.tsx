@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Inter, JetBrains_Mono, Newsreader } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -47,6 +48,7 @@ export default function RootLayout({
     >
       <body className="min-h-full antialiased">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   );

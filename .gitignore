@@ -1,0 +1,41 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+backend/.env
+**/.env
+!**/.env.example
+*.pem
+*.key
+credentials.json
+service-account*.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+.next/
+
+# Backend local / generated / tests (not for public repo)
+backend/tests/
+backend/var/
+backend/**/__pycache__/
+
+# Generated artifacts
+coverage/
+dist/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.tsbuildinfo

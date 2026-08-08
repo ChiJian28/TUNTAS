@@ -357,7 +357,11 @@ def node_challenger(state: WorkflowState) -> dict[str, Any]:
         _llm(),
     )
     _persist_handoff(run_id, challenger, {"stage": "pre_optimizer_catalog"})
-    vetoes = {v["course_code"] for v in challenger.get("output", {}).get("vetoes", [])}
+    vetoes = {
+        v["course_code"]
+        for v in challenger.get("output", {}).get("vetoes", [])
+        if str(v.get("severity", "")).lower() == "critical"
+    }
     courses = list(state["vendor"].get("output", {}).get("courses") or [])
     for c in courses:
         if c["code"] in vetoes:

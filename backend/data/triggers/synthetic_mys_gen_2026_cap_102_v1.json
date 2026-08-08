@@ -1,7 +1,7 @@
 {
   "schema_version": "v1",
   "source": "synthetic_fallback",
-  "note": "Organiser ambank_skill_gap_trigger.json not yet provided. Cohort synthesised at n=10 for backend tests; scale to 250 when official file arrives.",
+  "note": "Purpose-built 10-person demo cohort for a single golden walkthrough. Target programme is 250 employees; demo budget is pro-rated to RM50,000. Data includes an advanced-prerequisite employee, concentrated AML/fraud/privacy gaps, and explicit management guardrails.",
   "request": {
     "request_id": "MYS-GEN-2026-CAP-102",
     "issuing_unit": "Enterprise Risk, Operations & Compliance Division",
@@ -12,7 +12,7 @@
     "proficiency_from": 1,
     "proficiency_to": 3,
     "max_budget_per_employee_myr": 5000,
-    "total_budget_myr": 1250000,
+    "total_budget_myr": 50000,
     "target_timeline": "Q3 2026",
     "training_window": {
       "start": "2026-07-01",
@@ -25,7 +25,14 @@
       "MY_AI_NSC07_TC17",
       "PDPA"
     ],
-    "min_operational_coverage_ratio": 0.70
+    "min_operational_coverage_ratio": 0.7,
+    "programme_budget_ceiling_myr": 1250000,
+    "management_question": "Which feasible Q3 portfolio best closes mule-account, AML escalation, privacy, and AI-governance gaps without sending employee data outside Malaysia?",
+    "approval_guardrails": [
+      "No employee data upload outside Malaysia without approved DPA and transfer controls",
+      "No schedule or artifact commitment before manager approval",
+      "Level 3 requires deterministic behavioural evidence, not attendance alone"
+    ]
   },
   "employees": [
     {
@@ -39,9 +46,27 @@
       "target_level": 3,
       "availability_pct": 85,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR102",
+          "name": "Anti-Money Laundering",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR103",
+          "name": "Artificial Intelligence, Ethics and System Governance",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        }
       ]
     },
     {
@@ -55,8 +80,20 @@
       "target_level": 3,
       "availability_pct": 90,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 2, "gap_priority": 2}
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR019",
+          "name": "Data Protection",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        }
       ]
     },
     {
@@ -70,9 +107,30 @@
       "target_level": 3,
       "availability_pct": 80,
       "competency_gaps": [
-        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR112", "name": "Internal Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1}
+        {
+          "code": "FSF_PR102",
+          "name": "Anti-Money Laundering",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR112",
+          "name": "Internal Governance",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR103",
+          "name": "Artificial Intelligence, Ethics and System Governance",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
+      ],
+      "completed_course_codes": [
+        "ABS-PDPA-OPS-2026"
       ]
     },
     {
@@ -86,8 +144,20 @@
       "target_level": 3,
       "availability_pct": 75,
       "competency_gaps": [
-        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+        {
+          "code": "FSF_PR102",
+          "name": "Anti-Money Laundering",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR019",
+          "name": "Data Protection",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
       ]
     },
     {
@@ -101,9 +171,32 @@
       "target_level": 3,
       "availability_pct": 70,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 2, "target_level": 3, "gap_priority": 2}
-      ]
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR102",
+          "name": "Anti-Money Laundering",
+          "current_level": 2,
+          "target_level": 3,
+          "gap_priority": 2
+        },
+        {
+          "code": "FSF_PR113",
+          "name": "Cybersecurity Incident Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
+      ],
+      "completed_course_codes": [
+        "ABS-FRAUD-DET-2026"
+      ],
+      "demo_focus": "Featured advanced-path employee for ECIH prerequisite and fraud/incident simulation."
     },
     {
       "employee_ref": "EMP-SYN-006",
@@ -116,8 +209,20 @@
       "target_level": 3,
       "availability_pct": 88,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR103",
+          "name": "Artificial Intelligence, Ethics and System Governance",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        }
       ]
     },
     {
@@ -131,8 +236,20 @@
       "target_level": 3,
       "availability_pct": 95,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 2, "gap_priority": 2},
-        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        },
+        {
+          "code": "FSF_PR019",
+          "name": "Data Protection",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
       ]
     },
     {
@@ -146,8 +263,20 @@
       "target_level": 3,
       "availability_pct": 92,
       "competency_gaps": [
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 2, "gap_priority": 2},
-        {"code": "FSF_PR019", "name": "Data Protection", "current_level": 1, "target_level": 3, "gap_priority": 1}
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        },
+        {
+          "code": "FSF_PR019",
+          "name": "Data Protection",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
       ]
     },
     {
@@ -161,9 +290,27 @@
       "target_level": 3,
       "availability_pct": 78,
       "competency_gaps": [
-        {"code": "FSF_PR109", "name": "Enterprise Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR018", "name": "Data Governance", "current_level": 1, "target_level": 2, "gap_priority": 2}
+        {
+          "code": "FSF_PR109",
+          "name": "Enterprise Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR103",
+          "name": "Artificial Intelligence, Ethics and System Governance",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR018",
+          "name": "Data Governance",
+          "current_level": 1,
+          "target_level": 2,
+          "gap_priority": 2
+        }
       ]
     },
     {
@@ -177,9 +324,27 @@
       "target_level": 3,
       "availability_pct": 82,
       "competency_gaps": [
-        {"code": "FSF_PR103", "name": "Artificial Intelligence, Ethics and System Governance", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR102", "name": "Anti-Money Laundering", "current_level": 1, "target_level": 3, "gap_priority": 1},
-        {"code": "FSF_PR110", "name": "Fraud Risk Management", "current_level": 1, "target_level": 3, "gap_priority": 1}
+        {
+          "code": "FSF_PR103",
+          "name": "Artificial Intelligence, Ethics and System Governance",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR102",
+          "name": "Anti-Money Laundering",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        },
+        {
+          "code": "FSF_PR110",
+          "name": "Fraud Risk Management",
+          "current_level": 1,
+          "target_level": 3,
+          "gap_priority": 1
+        }
       ]
     }
   ]

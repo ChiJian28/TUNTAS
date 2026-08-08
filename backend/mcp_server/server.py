@@ -1,10 +1,17 @@
 """TUNTAS WorkBuddy MCP gateway — separate process/venv from FastAPI.
 
 Whitelisted tools only. Authenticates to backend with MCP_SERVICE_TOKEN.
+
+Run (stdio, for WorkBuddy's local MCP config):
+    python server.py
+
+Run (HTTP):
+    python server.py --http
 """
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -148,4 +155,7 @@ def refresh_assurance(run_id: str) -> dict[str, Any]:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host=HOST, port=PORT, path=PATH)
+    if "--http" in sys.argv:
+        mcp.run(transport="http", host=HOST, port=PORT, path=PATH)
+    else:
+        mcp.run()  # stdio — what WorkBuddy's local MCP config expects

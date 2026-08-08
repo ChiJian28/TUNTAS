@@ -7,6 +7,9 @@ Personal data must be protected by practical security arrangements to prevent lo
 ## PDPA-Breach-Notify
 Material personal data breaches require timely assessment and notification pathways consistent with PDPA amendments and guidelines.
 
+## PDPA-Processor-Control External Training Provider Accountability
+Before employee personal data is disclosed to an external training provider, the institution should document processing purpose, security safeguards, retention and deletion, breach escalation, audit rights, and any cross-border transfer conditions in a DPA or equivalent contract control.
+
 ## AIGE-Human-Oversight
 AI systems used in customer or risk decisions require human oversight, explainability proportionate to impact, and documented accountability.
 

@@ -104,28 +104,60 @@ def build_portfolios(
                 model.add(x[i, j] <= x[i, pj])
                 prereq_edges += 1
 
-    # Soft: maximize weighted competency coverage
-    gap_weights: list[tuple[int, int, int]] = []
-    for i, emp in enumerate(employees):
-        gaps = {g["code"]: g.get("gap_priority", 1) for g in emp.get("competency_gaps", [])}
-        for j, course in enumerate(eligible):
-            overlap = sum(
-                int(gaps.get(code, 0))
-                for code in course.get("competency_codes", [])
-                if code in gaps
-            )
-            if overlap:
-                gap_weights.append((i, j, overlap))
+    # Every assignment must close at least one of that employee's actual gaps.
+    # Priority 1 is highest, so invert the ordinal into a larger solver weight.
+    def priority_weight(raw: Any) -> int:
+        try:
+            priority = int(raw)
+        except (TypeError, ValueError):
+            priority = 1
+        return max(1, 4 - max(1, min(priority, 3)))
 
-    coverage_expr = sum(w * x[i, j] for i, j, w in gap_weights) if gap_weights else 0
+    gap_weight_by_employee: dict[int, dict[str, int]] = {}
+    for i, emp in enumerate(employees):
+        gaps = {
+            str(g["code"]): priority_weight(g.get("gap_priority", 1))
+            for g in emp.get("competency_gaps", [])
+            if g.get("code")
+        }
+        gap_weight_by_employee[i] = gaps
+        for j, course in enumerate(eligible):
+            covered = set(course.get("competency_codes") or []) & set(gaps)
+            if not covered:
+                model.add(x[i, j] == 0)
+
+    # One coverage variable per employee-gap avoids double-counting the same gap
+    # when two selected courses overlap.
+    gap_covered: dict[tuple[int, str], Any] = {}
+    coverage_terms = []
+    for i, gaps in gap_weight_by_employee.items():
+        for code, weight in gaps.items():
+            relevant = [
+                x[i, j]
+                for j, course in enumerate(eligible)
+                if code in set(course.get("competency_codes") or [])
+            ]
+            y = model.new_bool_var(f"gap_{i}_{code}")
+            gap_covered[(i, code)] = y
+            if relevant:
+                model.add_max_equality(y, relevant)
+            else:
+                model.add(y == 0)
+            coverage_terms.append(weight * y)
+
+    coverage_expr = sum(coverage_terms) if coverage_terms else 0
 
     # Objective variants
     if objective == "cost":
         model.minimize(total_cost_var)
     elif objective == "coverage":
-        model.maximize(coverage_expr)
-    else:  # balanced: maximize coverage*1000 - cost
-        model.maximize(coverage_expr * 1000 - total_cost_var)
+        # Lexicographic in practice: maximise coverage first, then prefer lower cost.
+        model.maximize(coverage_expr * 10_000_000 - total_cost_var)
+    else:
+        # Balanced assigns an explicit MYR value to each weighted gap point.
+        # 120_000 cents = RM1,200, creating a real middle option instead of
+        # collapsing to the pure cost objective.
+        model.maximize(coverage_expr * 120_000 - total_cost_var)
 
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = 10.0
@@ -147,18 +179,18 @@ def build_portfolios(
 
     assignments = []
     total_cost = 0.0
-    covered_gaps = 0
-    total_gaps = 0
-    for emp in employees:
-        total_gaps += len(emp.get("competency_gaps") or [])
+    covered_gap_weight = 0
+    total_gap_weight = sum(
+        weight
+        for gaps in gap_weight_by_employee.values()
+        for weight in gaps.values()
+    )
     for i, emp in enumerate(employees):
         emp_gaps = {g["code"] for g in emp.get("competency_gaps", [])}
         for j, course in enumerate(eligible):
             if solver.value(x[i, j]) == 1:
                 cost = float(course["cost_myr"])
                 total_cost += cost
-                hit = emp_gaps.intersection(set(course.get("competency_codes") or []))
-                covered_gaps += len(hit)
                 assignments.append(
                     {
                         "employee_ref": emp["employee_ref"],
@@ -173,6 +205,9 @@ def build_portfolios(
                         "hrd_corp_claim_status": course.get("hrd_corp_claim_status"),
                     }
                 )
+        for code, weight in gap_weight_by_employee[i].items():
+            if solver.value(gap_covered[(i, code)]) == 1:
+                covered_gap_weight += weight
 
     n = len(employees)
     tw_start = "2026-07-01"
@@ -211,7 +246,9 @@ def build_portfolios(
         operational_coverage = 0.0
         schedule_metrics = {"schedule_feasible": False, "error": str(exc)[:200]}
 
-    coverage_score = (covered_gaps / total_gaps) if total_gaps else 0.0
+    coverage_score = (
+        covered_gap_weight / total_gap_weight if total_gap_weight else 0.0
+    )
     risk_reduction_score = min(
         1.0, coverage_score * 0.85 + (1 if total_cost <= total_budget else 0) * 0.15
     )
@@ -249,8 +286,11 @@ def build_portfolios(
             "objective": objective,
             "eligible_courses": len(eligible),
             "assignment_count": len(assignments),
-            "covered_gap_hits": covered_gaps,
-            "total_gaps": total_gaps,
+            "covered_gap_weight": covered_gap_weight,
+            "total_gap_weight": total_gap_weight,
+            # Compatibility aliases used by existing artifact/report adapters.
+            "covered_gap_hits": covered_gap_weight,
+            "total_gaps": total_gap_weight,
             "unit_coverage_min": round(operational_coverage, 4),
             "prerequisite_edges": prereq_edges,
             "prerequisites_ok": prereq_ok,

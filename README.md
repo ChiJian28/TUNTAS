@@ -3,7 +3,7 @@
 ![TUNTAS cover](./assets/cover_image.png)
 
 <p align="center">
-  <img src="./assets/camel.png" alt="Camel — TUNTAS" />
+  <img src="./assets/camel.png" alt="Camel — TUNTAS" width="220" />
 </p>
 
 **Traceable Upskilling & Normative Training Assurance System**

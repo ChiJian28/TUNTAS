@@ -15,6 +15,8 @@ TUNTAS is the AmBank **Case Study 4** hackathon backend: a Capability Assurance 
 
 ## Architecture
 
+Demo - https://youtu.be/UkGNcHOeJ0U
+
 ![TUNTAS Architecture](./architecture.svg)
 
 ### Agent graph (LangGraph)
@@ -40,6 +42,126 @@ Postgres typed `evidence_nodes` / `evidence_edges` (not Neo4j). Path pattern:
 
 Policy version changes use a recursive blast-radius query over the same graph.
 
+## Features
+
+TUNTAS is organised around a **Run Center** and a six-section **Assurance Workspace**. Each run keeps one ID across planning, approval, delivery, simulation, evidence, and audit.
+
+### Pages at a glance
+
+| Page | Route | What it is for | What you can do |
+|---|---|---|---|
+| **Run Center** | `/runs` | Executive entry point across all capability-planning runs | Check API health, view real backend metrics, inspect recent run status, open an existing run, or create a new one |
+| **New Run Wizard** | `/runs/new` | Safely create a capability-planning request | Upload/paste trigger JSON or explicitly select Demo Data; review privacy aggregates and constraints; create the run and execute LangGraph |
+| **Overview** | `/runs/{runId}/overview` | Observe the live multi-agent workflow | Watch persisted Agent states through SSE, inspect the backend timeline, open typed handoffs, copy IDs/hashes, and follow the recommended next action |
+| **Plan** | `/runs/{runId}/plan` | Compare plans and make the management decision | Review diagnostics and vendors, compare three OR-Tools portfolios, run what-if stress tests, approve/reject/revise, and complete re-approval after policy reopen |
+| **Evidence** | `/runs/{runId}/evidence` | Trace every readiness conclusion to persisted evidence | Explore the Evidence Spine, filter node types, inspect nodes, load lineage, assess a policy-change blast radius, and selectively reopen affected paths |
+| **Delivery** | `/runs/{runId}/delivery` | Show what is committed after approval | Before approval, prove that delivery is locked; after approval, inspect the Q3 calendar, capacity ledger, employee assignments, and generated management files |
+| **Assurance** | `/runs/{runId}/assurance` | Measure readiness beyond course attendance | Review Kirkpatrick signals, residual risk, control coverage and snapshot history; launch scenarios, submit Quick Proof, and refresh post-training assurance |
+| **Simulation Theatre** | `/runs/{runId}/simulate/{scenarioId}` | Produce employee-level behavioural evidence | Run an adaptive role-based drill, submit actions and rationale, resume/abandon a session, and finalise a deterministic rubric score with evidence hash |
+| **Audit & Integrity** | `/runs/{runId}/audit` | Give managers and auditors one traceable record | Search events and handoffs, review approval history, download and verify artifacts, and inspect operational metrics |
+
+### Run Center
+
+The Run Center answers: **“What is happening across all capability programmes?”**
+
+- **Pipeline Status** — total runs, completed runs, and runs waiting for management approval.
+- **Governance & Risk** — citation coverage, hard-constraint violations, and approval-bypass attempts.
+- **Operational Efficiency** — budget utilisation, average handoff latency, and artifact completeness.
+- **Recent Runs** — request ID, employee count, current workflow node, status, and last update.
+- **API Health** — confirms that the UI is connected to the real FastAPI backend; runtime does not silently fall back to mocks.
+
+### New Run Wizard
+
+The wizard separates intake into four understandable steps:
+
+1. **Source** — upload JSON, paste JSON, or explicitly choose the synthetic demo fixture.
+2. **Privacy Preview** — review only aggregated roles, units, locations, and pseudonymous data before execution.
+3. **Constraint Review** — confirm budget, Q3 window, operational coverage, frameworks, and cohort size for uploaded/pasted input; synthetic mode deliberately waits for the backend fixture and shows exact values in the Plan header after create.
+4. **Create + Execute** — create a durable run ID, navigate to Overview, and start the LangGraph workflow.
+
+The demo fixture is always labelled **Demo Data**. It represents a 10-person, RM50,000 slice of the target 250-person programme.
+
+### Overview: live Agent console
+
+Overview answers: **“How did the system reach this recommendation?”**
+
+- Displays Diagnostic, Policy, Vendor, Learning, Challenger, Optimizer, Secretariat, approval, and Assurance stages.
+- Uses persisted handoffs or explicit completion events to mark an Agent complete — not client timers.
+- Receives `status`, `audit`, and `handoff` updates through run-scoped **Server-Sent Events**; polling is only a fallback.
+- Opens the **Handoff Inspector** for structured Pydantic payloads: source Agent, evidence IDs, confidence, input hash, review flag, and output JSON.
+- Provides **Proof Lens** metadata so reviewers can see the endpoint, persisted ID, fetch time, and whether a value is measured, modelled, assumed, or unknown.
+
+### Plan: tabs and decision controls
+
+The Plan page keeps the three main tabs on the left and the What-if / Approval controls visible in the right decision rail.
+
+| Plan tab/control | Purpose | What it shows or allows |
+|---|---|---|
+| **Decision Rail tab** | Compare the three feasible investment strategies | Budget Saver, Balanced, and Max Risk Reduction cards with cost, weighted coverage, operational coverage, assignments, solver status, hard constraints, and Challenger flags |
+| **Diagnostics tab** | Understand who has which capability gap | Role × competency heatmap, role/unit/location filters, pseudonymous employee table, and employee detail drawer with gaps, readiness, assessments, schedule, and simulation attempts |
+| **Audit Trail tab** | Review provider evidence before selecting a plan | Vendor shortlist, MYR price status, HRD Corp status, residency, evidence freshness, Q3 availability, prerequisites, capacity, live evidence snippets, critical vetoes, and evidence gaps |
+| **Constraint Stress Test** | Test whether management constraints are achievable | Change per-employee cap, total budget, or minimum coverage; run a real server-side CP-SAT recalculation; preview or apply the versioned result to the LangGraph checkpoint |
+| **Management Approval** | Enforce the human decision boundary | Select approve/reject/revise, enter rationale and conditions, choose a revise stage, and submit with idempotency and stale-portfolio protection |
+| **Re-approval Gate** | Re-authorise a plan after policy impact | Automatically uses `/resume` after affected paths have been reopened and the durable LangGraph interrupt has been re-armed |
+
+An option with failed hard constraints cannot be selected for approval. Before a successful approval response, no schedule or artifact is committed.
+
+### Evidence Spine
+
+Evidence answers: **“What persisted evidence supports this green status?”**
+
+- Visualises policy clauses, controls, competencies, employees, courses, approvals, simulation attempts, readiness, assurance snapshots, and artifacts.
+- Filters by node type and supports search, zoom, fit, focus, stack expansion, and node inspection.
+- Loads server-side lineage for a selected node instead of inventing browser-only relationships.
+- **Assess Framework Impact** highlights affected nodes, employees, and courses while fading unaffected paths.
+- **Reopen Paths** selectively recompiles impacted work, marks evidence stale, and re-arms management approval.
+
+This is a typed Postgres evidence graph, not Neo4j and not a decorative diagram.
+
+### Delivery
+
+Delivery answers: **“What did management actually commit?”**
+
+Before approval it displays **No commitment before approval**. After approval it provides:
+
+- a read-only Q3 month/week/list calendar in `Asia/Kuala_Lumpur`;
+- session capacity and assigned-headcount information;
+- employee-to-session assignments with employee drill-down;
+- six native outputs: **DOCX, XLSX, PPTX, PDF, JSON, and ICS**;
+- authenticated downloads with browser-side SHA-256 comparison;
+- backend HMAC presence shown honestly as **Signature recorded**, not browser-verified.
+
+### Assurance and Simulation
+
+Assurance answers: **“Did training produce evidence of behaviour, not just attendance?”**
+
+- **Kirkpatrick panel** — L1–L4 signals, with L3 requiring behavioural proof.
+- **Residual Risk** — modelled risk state with evidence-aware labels.
+- **Control Coverage** — which control paths have supporting readiness evidence.
+- **Snapshot History** — persistent pre-delivery and post-training assurance over time.
+- **Scenario Launcher** — four golden drills: fraud/mule-account, AML escalation, PDPA/vendor handling, and customer-service social engineering.
+- **Quick Proof** — analyst path for structured deterministic evidence.
+- **Refresh Assurance** — creates a new backend snapshot after simulation evidence changes.
+
+The Simulation Theatre provides adaptive Gemini narration, but Gemini cannot award Level 3. Final level, score, critical failures, matched signals, attempt ID, and evidence hash come from the deterministic rubric.
+
+### Audit tabs
+
+| Audit tab | What readers can inspect |
+|---|---|
+| **Events** | Persisted workflow events filtered by event type, actor, or text; event IDs can be copied |
+| **Handoffs** | Full typed Agent handoff archive with Agent filter, input hashes, IDs, and expandable JSON |
+| **Approval** | Latest decision plus history, manager identity/role, rationale, conditions, timestamps, and input hash |
+| **Artifact Integrity** | Artifact type, filename, size, SHA-256, recorded HMAC, and authenticated download/verification |
+| **Global Metrics** | Backend metrics plus a clearly labelled assumption calculator; modelled values are not presented as realised ROI |
+
+### Shared controls and integrations
+
+- **Run Context Bar** — run/request ID, copy action, status, current node, selected option, last refresh, and live connection mode.
+- **Proof Lens** — provenance overlay for reviewers and judges.
+- **SSE live sync** — true run-scoped status/audit/handoff push with honest polling fallback.
+- **Role-aware actions** — backend remains authoritative for viewer, analyst, manager, compliance, admin, and MCP-service permissions.
+- **WorkBuddy MCP** — can start a run, inspect status, compare portfolios, submit a first management decision, explain evidence lineage, list artifacts, run what-if, assess policy impact, and refresh assurance through whitelisted tools.
 
 ## Tech Stack
 

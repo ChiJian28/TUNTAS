@@ -1,0 +1,170 @@
+{
+  "schema_version": "v1",
+  "retrieved_note": "Versioned demo fixture for hybrid vendor research. Live Tavily results augment these when TAVILY_API_KEY is set. HRD Corp claimability is structured per course.",
+  "providers": [
+    {
+      "code": "AICB",
+      "name": "Asian Institute of Chartered Bankers",
+      "country": "MY",
+      "website": "https://www.aicb.org.my/",
+      "courses": [
+        {
+          "code": "AICB-AML-OPS-2026",
+          "title": "AML/CFT Operational Controls Workshop",
+          "delivery_mode": "hybrid",
+          "cost_myr": 2800,
+          "duration_hours": 16,
+          "class_capacity": 25,
+          "prerequisite_codes": [],
+          "competency_codes": ["FSF_PR102", "FSF_PR110"],
+          "framework_codes": ["BNM_AML_CFT", "BNM_RMiT"],
+          "data_residency": "MY",
+          "evidence_url": "https://www.aicb.org.my/",
+          "hrd_corp_claimable": true,
+          "hrd_corp_claim_status": "CLAIMABLE",
+          "hrd_corp_scheme": "HRD Corp Claimable Course",
+          "hrd_corp_evidence_basis": "fixture_catalog",
+          "notes": "Local residency; fits RM5k cap."
+        },
+        {
+          "code": "AICB-AI-GOV-2026",
+          "title": "AI Governance for Financial Institutions",
+          "delivery_mode": "hybrid",
+          "cost_myr": 3200,
+          "duration_hours": 12,
+          "class_capacity": 20,
+          "prerequisite_codes": ["ABS-PDPA-OPS-2026"],
+          "competency_codes": ["FSF_PR103", "FSF_PR018"],
+          "framework_codes": ["MY_AI_NSC07_TC17", "BNM_RMiT"],
+          "data_residency": "MY",
+          "evidence_url": "https://www.aicb.org.my/future-skills-framework/resources",
+          "hrd_corp_claimable": true,
+          "hrd_corp_claim_status": "CLAIMABLE",
+          "hrd_corp_scheme": "HRD Corp Claimable Course",
+          "hrd_corp_evidence_basis": "fixture_catalog"
+        }
+      ]
+    },
+    {
+      "code": "ABS",
+      "name": "Asian Banking School",
+      "country": "MY",
+      "website": "https://www.asianbankingschool.com/",
+      "courses": [
+        {
+          "code": "ABS-FRAUD-DET-2026",
+          "title": "Automated Fraud Detection & Case Handling",
+          "delivery_mode": "blended",
+          "cost_myr": 2400,
+          "duration_hours": 16,
+          "class_capacity": 15,
+          "prerequisite_codes": [],
+          "competency_codes": ["FSF_PR110"],
+          "framework_codes": ["BNM_RMiT", "BNM_AML_CFT"],
+          "data_residency": "MY",
+          "evidence_url": "https://www.asianbankingschool.com/",
+          "hrd_corp_claimable": true,
+          "hrd_corp_claim_status": "CLAIMABLE",
+          "hrd_corp_scheme": "HRD Corp Claimable Course",
+          "hrd_corp_evidence_basis": "fixture_catalog"
+        },
+        {
+          "code": "ABS-PDPA-OPS-2026",
+          "title": "PDPA for Operations & Customer Service",
+          "delivery_mode": "hybrid",
+          "cost_myr": 1600,
+          "duration_hours": 8,
+          "class_capacity": 20,
+          "prerequisite_codes": [],
+          "competency_codes": ["FSF_PR019", "FSF_PR018"],
+          "framework_codes": ["PDPA"],
+          "data_residency": "MY",
+          "evidence_url": "https://www.asianbankingschool.com/",
+          "hrd_corp_claimable": true,
+          "hrd_corp_claim_status": "CLAIMABLE",
+          "hrd_corp_scheme": "HRD Corp Claimable Course",
+          "hrd_corp_evidence_basis": "fixture_catalog"
+        }
+      ]
+    },
+    {
+      "code": "EC_COUNCIL",
+      "name": "EC-Council (via regional partner)",
+      "country": "MY",
+      "website": "https://www.eccouncil.org/",
+      "courses": [
+        {
+          "code": "ECIH-2026",
+          "title": "Certified Incident Handler (ECIH)",
+          "delivery_mode": "classroom",
+          "cost_myr": 4700,
+          "duration_hours": 24,
+          "class_capacity": 12,
+          "prerequisite_codes": ["ABS-FRAUD-DET-2026"],
+          "competency_codes": ["FSF_PR110", "FSF_PR113"],
+          "framework_codes": ["BNM_RMiT"],
+          "data_residency": "SG",
+          "evidence_url": "https://www.eccouncil.org/",
+          "hrd_corp_claimable": false,
+          "hrd_corp_claim_status": "NOT_CLAIMABLE",
+          "hrd_corp_scheme": null,
+          "hrd_corp_evidence_basis": "fixture_catalog",
+          "hrd_corp_notes": "International cert pathway; typically outside HRD Corp claim scope.",
+          "notes": "Near budget ceiling; cross-border data concern for Challenger. Prereq ABS-FRAUD makes dual-assign over RM5k unless already completed."
+        }
+      ]
+    },
+    {
+      "code": "GLOBAL_CERT_X",
+      "name": "GlobalCert X (demo challenger target)",
+      "country": "US",
+      "website": "https://example.invalid/globalcert-x",
+      "courses": [
+        {
+          "code": "GCX-REGTECH-ULTRA",
+          "title": "Ultra RegTech Masterclass (no DPA evidence)",
+          "delivery_mode": "online",
+          "cost_myr": 4900,
+          "duration_hours": 20,
+          "class_capacity": 40,
+          "prerequisite_codes": [],
+          "competency_codes": ["FSF_PR103", "FSF_PR102", "FSF_PR110"],
+          "framework_codes": ["BNM_RMiT", "BNM_AML_CFT", "MY_AI_NSC07_TC17", "PDPA"],
+          "data_residency": "US",
+          "evidence_url": "https://example.invalid/globalcert-x",
+          "hrd_corp_claimable": false,
+          "hrd_corp_claim_status": "NOT_CLAIMABLE",
+          "hrd_corp_evidence_basis": "fixture_catalog",
+          "notes": "Intentionally weak privacy/DPA evidence for Challenger veto demo.",
+          "privacy_flags": ["missing_dpa", "cross_border_upload", "unclear_retention"]
+        }
+      ]
+    },
+    {
+      "code": "IBFIM",
+      "name": "IBFIM",
+      "country": "MY",
+      "website": "https://www.ibfim.com/",
+      "courses": [
+        {
+          "code": "IBFIM-ERM-2026",
+          "title": "Enterprise Risk & Control Assurance",
+          "delivery_mode": "hybrid",
+          "cost_myr": 2200,
+          "duration_hours": 12,
+          "class_capacity": 30,
+          "prerequisite_codes": [],
+          "competency_codes": ["FSF_PR109", "FSF_PR112"],
+          "framework_codes": ["BNM_RMiT"],
+          "data_residency": "MY",
+          "evidence_url": "https://www.ibfim.com/",
+          "hrd_corp_claimable": true,
+          "hrd_corp_claim_status": "PARTIAL",
+          "hrd_corp_scheme": "HRD Corp (scheme code pending confirmation)",
+          "hrd_corp_evidence_basis": "fixture_catalog",
+          "hrd_corp_notes": "Likely claimable; confirm claim code before procurement."
+        }
+      ]
+    }
+  ]
+}

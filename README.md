@@ -1,9 +1,13 @@
 # TUNTAS
 
-![TUNTAS cover](./assets/cover_image.png)
-
 <p align="center">
-  <img src="./assets/camel.png" alt="Camel — TUNTAS" width="220" />
+  <img src="./assets/camelXworkbuddy.png" alt="TUNTAS Camel × WorkBuddy" width="820" />
+</p>
+<p align="center">
+  <img src="./assets/cover_image.png" alt="TUNTAS cover" width="820" />
+</p>
+<p align="center">
+  <img src="./assets/camel.png" alt="Tuntas Camel character sheet" width="380" />
 </p>
 
 **Traceable Upskilling & Normative Training Assurance System**

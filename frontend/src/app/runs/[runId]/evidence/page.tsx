@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,7 +21,16 @@ const EvidenceCanvas = dynamic(
 
 function EvidenceContent() {
   const params = useParams<{ runId: string }>();
-  return <EvidenceCanvas runId={params.runId} />;
+  const searchParams = useSearchParams();
+  const framework = searchParams.get("framework") || "BNM_ORTC_2026";
+  const autoBlast = searchParams.get("blast") === "1";
+  return (
+    <EvidenceCanvas
+      runId={params.runId}
+      framework={framework}
+      autoBlast={autoBlast}
+    />
+  );
 }
 
 export default function EvidencePage() {

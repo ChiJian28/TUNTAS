@@ -37,6 +37,7 @@ import {
 import {
   affectedNodeIdsFromBlast,
   BlastRadiusPanel,
+  greenNodeIdsFromBlast,
 } from "./blast-radius-panel";
 import { EdgeWithOffsetLabel } from "./edge-with-offset-label";
 import { EvidenceFilterRail } from "./filter-rail";
@@ -62,6 +63,7 @@ function buildBaseGraph(
   layoutNodes: LayoutNode[],
   layoutEdges: LayoutEdge[],
   affected: Set<string>,
+  green: Set<string> = new Set(),
 ): BaseGraph {
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -85,7 +87,10 @@ function buildBaseGraph(
     const isGroup = ln.kind === "group";
     const memberAffected =
       isGroup && ln.group.memberIds.some((mid) => affected.has(mid));
+    const memberGreen =
+      isGroup && ln.group.memberIds.some((mid) => green.has(mid));
     const isAffected = affected.has(id) || Boolean(memberAffected);
+    const isGreen = !isAffected && (green.has(id) || Boolean(memberGreen));
 
     const title = ln.kind === "api" ? ln.node.label : ln.group.label;
     const subtitle =
@@ -94,12 +99,14 @@ function buildBaseGraph(
         : `${ln.group.memberIds.length} stacked · click to expand`;
     // Longhands only — mixing borderWidth/borderColor with borderLeft*
     // triggers React "conflicting style property" warnings on rerender.
-    const edgeWidth = isAffected ? 2 : isGroup ? 1.5 : 1;
+    const edgeWidth = isAffected || isGreen ? 2 : isGroup ? 1.5 : 1;
     const edgeColor = isAffected
       ? "var(--warning)"
-      : isGroup
-        ? "var(--border-strong)"
-        : "var(--border)";
+      : isGreen
+        ? "var(--success)"
+        : isGroup
+          ? "var(--border-strong)"
+          : "var(--border)";
 
     return {
       id,
@@ -146,6 +153,7 @@ function buildBaseGraph(
         raw: ln.kind === "api" ? ln.node : ln.group,
         isGroup,
         isAffected,
+        isGreen,
       },
       style: {
         width: NODE_W,
@@ -162,12 +170,17 @@ function buildBaseGraph(
         borderRadius: 10,
         background: "var(--surface-raised)",
         fontSize: 12,
-        opacity: affected.size > 0 && !isAffected ? 0.32 : 1,
+        opacity:
+          (affected.size > 0 || green.size > 0) && !isAffected && !isGreen
+            ? 0.32
+            : 1,
         boxShadow: isAffected
           ? "0 0 0 2px color-mix(in srgb, var(--warning) 35%, transparent)"
-          : isGroup
-            ? "2px 3px 0 color-mix(in srgb, var(--border) 80%, transparent)"
-            : "0 1px 2px rgba(20,20,19,0.04)",
+          : isGreen
+            ? "0 0 0 2px color-mix(in srgb, var(--success) 35%, transparent)"
+            : isGroup
+              ? "2px 3px 0 color-mix(in srgb, var(--border) 80%, transparent)"
+              : "0 1px 2px rgba(20,20,19,0.04)",
         padding: 0,
         overflow: "visible",
       },
@@ -177,6 +190,9 @@ function buildBaseGraph(
   const rfEdges: Edge[] = layoutEdges.map((e) => {
     const edgeHit =
       affected.has(e.from_node_id) || affected.has(e.to_node_id);
+    const edgeGreen =
+      !edgeHit &&
+      (green.has(e.from_node_id) || green.has(e.to_node_id));
     return {
       id: e.id,
       source: e.from_node_id,
@@ -187,9 +203,16 @@ function buildBaseGraph(
       animated: false,
       markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
       style: {
-        stroke: edgeHit ? "var(--warning)" : "var(--border-strong)",
-        strokeWidth: edgeHit ? 2 : 1,
-        opacity: affected.size > 0 && !edgeHit ? 0.22 : 1,
+        stroke: edgeHit
+          ? "var(--warning)"
+          : edgeGreen
+            ? "var(--success)"
+            : "var(--border-strong)",
+        strokeWidth: edgeHit || edgeGreen ? 2 : 1,
+        opacity:
+          (affected.size > 0 || green.size > 0) && !edgeHit && !edgeGreen
+            ? 0.22
+            : 1,
       },
     };
   });
@@ -241,12 +264,24 @@ function applyFocusOverlay(
   };
 }
 
-function EvidenceCanvasInner({ runId }: { runId: string }) {
+function EvidenceCanvasInner({
+  runId,
+  framework: frameworkProp,
+  autoBlast: autoBlastProp,
+}: {
+  runId: string;
+  framework?: string | null;
+  autoBlast?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const nodeParam = searchParams.get("node");
   const modeParam = searchParams.get("mode");
+  const frameworkParam =
+    frameworkProp || searchParams.get("framework") || "BNM_ORTC_2026";
+  const autoBlast =
+    autoBlastProp ?? searchParams.get("blast") === "1";
   const setSelectedEvidenceNodeId = useUiStore(
     (s) => s.setSelectedEvidenceNodeId,
   );
@@ -292,6 +327,10 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
   const affected = useMemo(
     () => affectedNodeIdsFromBlast(blastPreview),
     [blastPreview],
+  );
+  const greenIds = useMemo(
+    () => greenNodeIdsFromBlast(blastPreview, apiNodes),
+    [blastPreview, apiNodes],
   );
 
   const filteredApiNodes = useMemo(
@@ -346,8 +385,8 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
   }, [stickyFocusId, layoutEdges, groups, expandedGroups]);
 
   const baseGraph = useMemo(
-    () => buildBaseGraph(layoutNodes, layoutEdges, affected),
-    [layoutNodes, layoutEdges, affected],
+    () => buildBaseGraph(layoutNodes, layoutEdges, affected, greenIds),
+    [layoutNodes, layoutEdges, affected, greenIds],
   );
 
   // Animate only for click-pinned focus (not hover) to avoid dash-array restart flicker
@@ -403,10 +442,12 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
       pendingBlastFit.current = false;
       return;
     }
-    const hit = nodes.filter(
-      (n) =>
-        Boolean((n.data as { isAffected?: boolean } | undefined)?.isAffected),
-    );
+    const hit = nodes.filter((n) => {
+      const data = n.data as
+        | { isAffected?: boolean; isGreen?: boolean }
+        | undefined;
+      return Boolean(data?.isAffected || data?.isGreen);
+    });
     if (hit.length === 0) return;
     pendingBlastFit.current = false;
     const raf = requestAnimationFrame(() => {
@@ -444,13 +485,57 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
       }
       setHoverFocusId(null);
       setSelectedEvidenceNodeId(null);
-      updateUrl(null, null);
+      // Do not router.replace on auto-assess — rewriting the query can drop
+      // blast=1 on first paint and remount the canvas with empty preview.
+      if (searchParams.get("node") || searchParams.get("mode")) {
+        updateUrl(null, null);
+      }
       pendingBlastFit.current = Boolean(
         response && affectedNodeIdsFromBlast(response).size > 0,
       );
     },
-    [setSelectedEvidenceNodeId, updateUrl],
+    [setSelectedEvidenceNodeId, updateUrl, searchParams],
   );
+
+  useEffect(() => {
+    if (!blastPreview || apiNodes.length === 0) return;
+    const featured = blastPreview.featured_red as
+      | { employee_ref?: string; course_code?: string }
+      | undefined;
+    const featuredG = blastPreview.featured_green as
+      | { employee_ref?: string; course_code?: string }
+      | undefined;
+    const refs = new Set(
+      [
+        featured?.employee_ref,
+        featured?.course_code,
+        featuredG?.employee_ref,
+        featuredG?.course_code,
+      ].filter(Boolean) as string[],
+    );
+    const featuredIds = new Set(
+      apiNodes.filter((n) => refs.has(n.external_ref)).map((n) => n.id),
+    );
+    const affectedIds = affectedNodeIdsFromBlast(blastPreview);
+    const greenFromBlast = greenNodeIdsFromBlast(blastPreview, apiNodes);
+    setExpandedGroups((prev) => {
+      let changed = false;
+      const next = new Set(prev);
+      for (const g of groups) {
+        const hit = g.memberIds.some(
+          (id) =>
+            featuredIds.has(id) ||
+            affectedIds.has(id) ||
+            greenFromBlast.has(id),
+        );
+        if (!next.has(g.id) && hit) {
+          next.add(g.id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [blastPreview, apiNodes, groups]);
 
   const focusOnNode = useCallback(
     (nodeId: string) => {
@@ -710,6 +795,9 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
                 <BlastRadiusPanel
                   runId={runId}
                   onImpact={handleBlastImpact}
+                  initialFramework={frameworkParam || "BNM_ORTC_2026"}
+                  autoAssess={autoBlast}
+                  graphReady={graphQuery.isSuccess && apiNodes.length > 0}
                 />
               </div>
             </header>
@@ -749,10 +837,22 @@ function EvidenceCanvasInner({ runId }: { runId: string }) {
   );
 }
 
-export function EvidenceCanvas({ runId }: { runId: string }) {
+export function EvidenceCanvas({
+  runId,
+  framework,
+  autoBlast,
+}: {
+  runId: string;
+  framework?: string | null;
+  autoBlast?: boolean;
+}) {
   return (
     <ReactFlowProvider>
-      <EvidenceCanvasInner runId={runId} />
+      <EvidenceCanvasInner
+        runId={runId}
+        framework={framework}
+        autoBlast={autoBlast}
+      />
     </ReactFlowProvider>
   );
 }

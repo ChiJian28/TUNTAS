@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { RunSidebar } from "@/components/shell/run-sidebar";
 import { RunContextBar } from "@/components/shell/run-context-bar";
 import { RunLiveSync } from "@/components/shell/run-live-sync";
+import { GateStrip } from "@/features/review/gate-strip";
 
 export default function RunWorkspaceLayout({
   children,
@@ -26,6 +27,7 @@ export default function RunWorkspaceLayout({
       <RunSidebar runId={runId} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <RunContextBar runId={runId} />
+        <GateStrip runId={runId} />
         <RunLiveSync runId={runId} />
         <main className="min-h-0 flex-1 overflow-auto p-6">{children}</main>
       </div>

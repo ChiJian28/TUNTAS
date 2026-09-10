@@ -22,6 +22,9 @@ export const queryKeys = {
   assurance: (runId: string) => ["assurance", runId] as const,
   approval: (runId: string) => ["approval", runId] as const,
   approvals: (runId: string) => ["approvals", runId] as const,
+  gates: (runId: string) => ["gates", runId] as const,
+  impactBrief: (runId: string, frameworkCode: string) =>
+    ["impactBrief", runId, frameworkCode] as const,
   evidenceGraph: (runId: string) => ["evidenceGraph", runId] as const,
   lineage: (nodeId: string) => ["lineage", nodeId] as const,
   blastRadius: (runId: string, frameworkCode: string) =>

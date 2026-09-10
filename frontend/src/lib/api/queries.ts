@@ -10,9 +10,11 @@ import type {
   EvidenceGraphResponse,
   EvidenceLineageResponse,
   HealthResponse,
+  ImpactBriefResponse,
   MeResponse,
   MetricsSummary,
   PortfolioOptionDetail,
+  ReviewChainView,
   RunDetail,
   RunEvent,
   RunListItem,
@@ -119,6 +121,17 @@ export const apiQueries = {
     queryKey: queryKeys.approvals(runId),
     queryFn: () =>
       apiGet<ApprovalDecisionView[]>(`/v1/runs/${runId}/approvals`),
+  }),
+  gates: (runId: string) => ({
+    queryKey: queryKeys.gates(runId),
+    queryFn: () => apiGet<ReviewChainView>(`/v1/runs/${runId}/gates`),
+  }),
+  impactBrief: (runId: string, frameworkCode = "BNM_ORTC_2026") => ({
+    queryKey: queryKeys.impactBrief(runId, frameworkCode),
+    queryFn: () =>
+      apiGet<ImpactBriefResponse>(`/v1/runs/${runId}/impact-brief`, {
+        params: { framework_code: frameworkCode },
+      }),
   }),
   evidenceGraph: (runId: string) => ({
     queryKey: queryKeys.evidenceGraph(runId),

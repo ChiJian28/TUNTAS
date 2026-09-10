@@ -58,9 +58,17 @@ export interface DecisionRequest {
   rationale: string;
   conditions?: string[];
   acting_manager_id?: string | null;
-  return_to_stage?: "learning_architect" | "challenger" | "optimizer" | "secretariat" | null;
+  return_to_stage?: "parallel_intake" | "learning_architect" | "challenger" | "optimizer" | "secretariat" | null;
   /** Stale guard — pass portfolio_version from cockpit/what-if */
   expected_portfolio_version?: string | null;
+}
+
+export interface GateDecisionRequest {
+  decision: "approve" | "reject" | "revise";
+  rationale: string;
+  conditions?: string[];
+  acting_manager_id?: string | null;
+  return_to_stage?: "parallel_intake" | "learning_architect" | "challenger" | "optimizer" | "secretariat" | null;
 }
 
 export interface DecisionResponse {
@@ -68,6 +76,8 @@ export interface DecisionResponse {
   status: RunStatus;
   decision_id?: string | null;
   message: string;
+  commit_unlocked?: boolean | null;
+  current_gate?: string | null;
 }
 
 export interface MeResponse {
@@ -137,6 +147,8 @@ export interface WhatIfRequest {
   min_operational_coverage_ratio?: number | null;
   /** false = preview only; true (default) = persist DB + sync LangGraph checkpoint */
   apply?: boolean;
+  /** false = WorkBuddy / stress: do not silently drop coverage by 0.2 */
+  allow_coverage_relax?: boolean;
 }
 
 export interface WhatIfResponse {
@@ -145,6 +157,9 @@ export interface WhatIfResponse {
   applied: boolean;
   checkpoint_synced: boolean;
   portfolio_version?: string | null;
+  solver_status?: string | null;
+  infeasible_reason?: string | null;
+  allow_coverage_relax?: boolean | null;
 }
 
 export interface RunEvent {
@@ -328,6 +343,96 @@ export interface ApprovalDecisionView {
   option_label: string;
 }
 
+export type ReviewGateKey =
+  | "compliance"
+  | "procurement"
+  | "learning"
+  | "operations"
+  | "management";
+
+export type ReviewPath = "capability" | "circular";
+
+export interface ReviewGateView {
+  id?: string | null;
+  gate_key: ReviewGateKey;
+  sequence: number;
+  label: string;
+  prompt: string;
+  status: string;
+  decision?: string | null;
+  rationale?: string | null;
+  conditions: unknown[];
+  actor_id?: string | null;
+  actor_role?: string | null;
+  input_hash?: string | null;
+  return_to_stage?: string | null;
+  decided_at?: string | null;
+  updated_at?: string | null;
+  skipped: boolean;
+  commits: boolean;
+  allowed_roles: string[];
+  revise_stage?: string | null;
+  can_decide: boolean;
+  blocked_by?: string | null;
+  missing_priors: string[];
+}
+
+export interface ReviewChainView {
+  run_id: string;
+  path: ReviewPath;
+  current_gate?: string | null;
+  commit_unlocked: boolean;
+  commit_blocked_by: string[];
+  run_status: string;
+  gates: ReviewGateView[];
+  message?: string | null;
+  langgraph_resumed?: boolean | null;
+  decided_gate?: string | null;
+  decision?: string | null;
+  input_hash?: string | null;
+}
+
+export interface WorkbuddyBriefResponse {
+  instruction: string;
+  chat_markdown: string;
+  run_id: string;
+  view: string;
+  path?: ReviewPath | null;
+  current_gate?: string | null;
+  commit_unlocked: boolean;
+  commit_blocked_by: string[];
+  run_status?: string | null;
+  dispatch_expert_id?: string | null;
+  dispatch_expert_name?: string | null;
+  dispatch_action: string;
+  wait_line: string;
+  human_commands: string[];
+  evidence_url?: string | null;
+  review_url?: string | null;
+  overview_url?: string | null;
+  ok: boolean;
+  detail?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ImpactBriefResponse {
+  chat_markdown: string;
+  run_id: string;
+  framework_code: string;
+  headline: string;
+  expected_vs_found: Record<string, unknown>;
+  action_brief: Record<string, unknown>[];
+  wait_state: string;
+  approval: string;
+  stale_courses: Record<string, unknown>[];
+  green_courses: Record<string, unknown>[];
+  affected_employees: Record<string, unknown>[];
+  unaffected_employees: Record<string, unknown>[];
+  featured_red?: Record<string, unknown> | null;
+  featured_green?: Record<string, unknown> | null;
+  [key: string]: unknown;
+}
+
 export interface ArtifactView {
   id: string;
   artifact_type: string;
@@ -365,6 +470,7 @@ export interface CockpitBundle {
   artifacts: ArtifactView[];
   sessions: TrainingSessionView[];
   approval: ApprovalDecisionView | null;
+  review?: ReviewChainView | null;
   employee_count: number;
   portfolio_version?: string | null;
 }
@@ -389,6 +495,10 @@ export interface BlastRadiusResponse {
   affected_nodes: Record<string, unknown>[];
   affected_employees: string[];
   affected_courses: string[];
+  expected_vs_found?: Record<string, unknown> | null;
+  featured_red?: Record<string, unknown> | null;
+  featured_green?: Record<string, unknown> | null;
+  walk?: string | null;
   [key: string]: unknown;
 }
 
@@ -506,6 +616,12 @@ export type ApiPaths = {
   "POST /v1/runs/{run_id}/assurance/refresh": { response: AssuranceRefreshResponse };
   "GET /v1/runs/{run_id}/approval": { response: ApprovalDecisionView | null };
   "GET /v1/runs/{run_id}/approvals": { response: ApprovalDecisionView[] };
+  "GET /v1/runs/{run_id}/gates": { response: ReviewChainView };
+  "POST /v1/runs/{run_id}/gates/{gate_key}": {
+    body: GateDecisionRequest;
+    headers?: { "Idempotency-Key"?: string };
+    response: ReviewChainView;
+  };
   "GET /v1/runs/{run_id}/options": { response: PortfolioOptionDetail[] };
   "GET /v1/runs/{run_id}/options/{option_key}": { response: PortfolioOptionDetail };
   "POST /v1/runs/{run_id}/what-if": { body: WhatIfRequest; response: WhatIfResponse };
@@ -525,6 +641,16 @@ export type ApiPaths = {
     body: BlastReopenRequest;
     response: BlastReopenResponse;
   };
+  "POST /v1/runs/{run_id}/circulars": {
+    body: Record<string, unknown>;
+    response: Record<string, unknown>;
+  };
+  "POST /v1/runs/{run_id}/policy-change/assess": {
+    body: Record<string, unknown>;
+    response: Record<string, unknown>;
+  };
+  "GET /v1/runs/{run_id}/impact-brief": { response: ImpactBriefResponse };
+  "GET /v1/runs/{run_id}/evidence-spine": { response: Record<string, unknown> };
 
   "GET /v1/artifacts/{artifact_id}": { response: Blob }; // FileResponse download
   "GET /v1/evidence/{node_id}/lineage": { response: EvidenceLineageResponse };

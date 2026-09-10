@@ -45,6 +45,26 @@ const STATUS_MAP: Record<string, StatusConfig> = {
     label: "Pending",
     className: "bg-[var(--warning-soft)] text-[var(--warning)] border-[var(--warning)]/20",
   },
+  awaiting_approval: {
+    icon: PauseCircle,
+    label: "Awaiting approval",
+    className: "bg-[var(--warning-soft)] text-[var(--warning)] border-[var(--warning)]/20",
+  },
+  revising: {
+    icon: Loader2,
+    label: "Revising",
+    className: "bg-[var(--evidence-soft)] text-[var(--evidence)] border-[var(--evidence)]/20",
+  },
+  skipped: {
+    icon: PauseCircle,
+    label: "Skipped",
+    className: "bg-[var(--surface)] text-[var(--muted-foreground)] border-[var(--border)]",
+  },
+  rejected: {
+    icon: XCircle,
+    label: "Rejected",
+    className: "bg-[var(--destructive-soft)] text-[var(--destructive)] border-[var(--destructive)]/20",
+  },
   modelled: {
     icon: Clock,
     label: "Modelled",

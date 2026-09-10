@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { normalizeApiError } from "@/lib/api/errors";
-import type { BlastRadiusResponse } from "@/lib/api/generated/openapi.types";
+import type {
+  BlastRadiusResponse,
+  EvidenceNodeView,
+} from "@/lib/api/generated/openapi.types";
 import {
   blastReopen,
   invalidateAfterBlastReopen,
@@ -25,6 +28,8 @@ import {
 import { apiQueries } from "@/lib/api/queries";
 import { useUiStore } from "@/stores/ui-store";
 import { cn } from "@/lib/utils";
+
+const ORTC = "BNM_ORTC_2026";
 
 export function affectedNodeIdsFromBlast(
   blast: BlastRadiusResponse | null | undefined,
@@ -45,16 +50,91 @@ export function affectedNodeIdsFromBlast(
   return ids;
 }
 
+export function greenNodeIdsFromBlast(
+  blast: BlastRadiusResponse | null | undefined,
+  nodes: EvidenceNodeView[],
+): Set<string> {
+  const ids = new Set<string>();
+  if (!blast) return ids;
+  const featured = blast.featured_green as
+    | { course_code?: string; employee_ref?: string }
+    | undefined;
+  const refs = new Set(
+    [featured?.course_code, featured?.employee_ref].filter(Boolean) as string[],
+  );
+  if (refs.size === 0) return ids;
+  for (const n of nodes) {
+    if (refs.has(n.external_ref)) ids.add(n.id);
+  }
+  return ids;
+}
+
+type CountMatch = { expected?: number; found?: number; match?: boolean };
+
+function ExpectedVsFoundChip({
+  blast,
+}: {
+  blast: BlastRadiusResponse;
+}) {
+  const ingestRequired = Boolean(
+    (blast as { ingest_required?: boolean }).ingest_required,
+  );
+  const evs = (blast.expected_vs_found ?? null) as {
+    stale_programs?: CountMatch;
+    affected_employees?: CountMatch;
+    false_positives?: unknown[];
+    false_negatives?: unknown[];
+    course_false_negatives?: unknown[];
+    employee_false_negatives?: unknown[];
+    match?: boolean;
+  } | null;
+  if (!evs && !ingestRequired) return null;
+  const stale = evs?.stale_programs;
+  const emp = evs?.affected_employees;
+  const fp = (evs?.false_positives ?? []).length;
+  const courseFn = (evs?.course_false_negatives ?? []).length;
+  const empFn = (evs?.employee_false_negatives ?? []).length;
+  const fn = (evs?.false_negatives ?? []).length;
+  const fnLabel =
+    evs?.course_false_negatives || evs?.employee_false_negatives
+      ? `FN ${courseFn}c+${empFn}e`
+      : `FN ${fn}`;
+  const ok = Boolean(evs?.match) && !ingestRequired;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <Badge
+        variant={ingestRequired ? "warning" : ok ? "success" : "destructive"}
+        className="text-[10px]"
+      >
+        {ingestRequired
+          ? "Ingest circular first"
+          : `Expected vs Found ${ok ? "match" : "mismatch"}`}
+      </Badge>
+      <span className="font-mono text-[10px] text-[var(--muted-foreground)]">
+        stale {stale?.found ?? "—"}/{stale?.expected ?? 3} · emp {emp?.found ?? "—"}/
+        {emp?.expected ?? 7} · FP {fp} · {fnLabel}
+      </span>
+    </div>
+  );
+}
+
 /** Compact floating trigger for framework blast-radius assessment. */
 export function BlastRadiusPanel({
   runId,
   onImpact,
   onAffected,
+  initialFramework,
+  autoAssess = false,
+  graphReady = true,
   className,
 }: {
   runId: string;
   onImpact?: (response: BlastRadiusResponse | null) => void;
   onAffected?: (nodeIds: string[]) => void;
+  initialFramework?: string;
+  autoAssess?: boolean;
+  /** Wait for Evidence graph fetch — auto-assess before this is a silent miss. */
+  graphReady?: boolean;
   className?: string;
 }) {
   const qc = useQueryClient();
@@ -62,12 +142,16 @@ export function BlastRadiusPanel({
   const popMutation = useUiStore((s) => s.popMutation);
 
   const cockpit = useQuery(apiQueries.cockpit(runId));
-  const frameworks = cockpit.data?.request?.frameworks ?? [];
+  const frameworks = useMemo(() => {
+    const fromCockpit = cockpit.data?.request?.frameworks ?? [];
+    return [...new Set([initialFramework, ORTC, ...fromCockpit].filter(Boolean))] as string[];
+  }, [cockpit.data?.request?.frameworks, initialFramework]);
 
-  const [framework, setFramework] = useState("");
-  const selectedFramework = framework || frameworks[0] || "";
+  const [framework, setFramework] = useState(initialFramework || ORTC);
+  const selectedFramework = framework || frameworks[0] || ORTC;
   const [reason, setReason] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const didAuto = useRef(false);
 
   const blast = useQuery({
     ...apiQueries.blastRadius(runId, selectedFramework),
@@ -92,7 +176,7 @@ export function BlastRadiusPanel({
         );
       } else {
         toast.success(
-          `Rearmed interrupt. Status: ${res.status}. Proceed to Plan for /resume.`,
+          `Rearmed interrupt. Status: ${res.status}. Walk department gates from Compliance — Management COMMIT stays locked.`,
         );
       }
       invalidateAfterBlastReopen(qc, runId);
@@ -104,20 +188,42 @@ export function BlastRadiusPanel({
     },
   });
 
-  async function assess() {
+  async function assess(opts?: { silent?: boolean }) {
     if (!selectedFramework) return;
     const result = await blast.refetch();
     if (result.data) {
       onImpact?.(result.data);
       const ids = [...affectedNodeIdsFromBlast(result.data)];
       onAffected?.(ids);
-      toast.message("Framework impact assessed (audit event written by GET).");
+      if (!opts?.silent) {
+        toast.message("Framework impact assessed (audit event written by GET).");
+      }
     } else if (result.error) {
       onImpact?.(null);
       onAffected?.([]);
       toast.error(normalizeApiError(result.error).message);
     }
   }
+
+  useEffect(() => {
+    if (!autoAssess || !selectedFramework || !graphReady) return;
+    if (didAuto.current) return;
+    didAuto.current = true;
+    void (async () => {
+      const result = await blast.refetch();
+      if (result.data) {
+        onImpact?.(result.data);
+        onAffected?.([...affectedNodeIdsFromBlast(result.data)]);
+        return;
+      }
+      didAuto.current = false;
+      if (result.error) {
+        toast.error(normalizeApiError(result.error).message);
+      }
+    })();
+    // One-shot from ?blast=1 after the graph is on screen.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAssess, selectedFramework, graphReady]);
 
   return (
     <div className={cn("space-y-3", className)}>
@@ -126,53 +232,51 @@ export function BlastRadiusPanel({
           Framework impact
         </p>
         <p className="mt-0.5 text-[11px] leading-snug text-[var(--muted-foreground)]">
-          Blast radius only — not a document diff. GET writes an audit event.
+          Circular-scoped blast — not a document diff. GET writes an audit event.
+          Auto-assess only when URL has blast=1.
         </p>
       </div>
 
-      {frameworks.length === 0 ? (
-        <p className="text-[11px] text-[var(--muted-foreground)]">
-          No frameworks on cockpit.request.
-        </p>
-      ) : (
-        <div className="flex items-center gap-2">
-          <Select
-            value={selectedFramework}
-            onValueChange={setFramework}
-            disabled={frameworks.length === 0}
-          >
-            <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
-              <SelectValue placeholder="Framework" />
-            </SelectTrigger>
-            <SelectContent>
-              {frameworks.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {f}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 shrink-0 gap-1 bg-[var(--foreground)] px-2.5 text-xs text-white hover:bg-black hover:text-white"
-            disabled={!selectedFramework || blast.isFetching}
-            onClick={() => void assess()}
-          >
-            {blast.isFetching ? "…" : "Assess"}
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <Select
+          value={selectedFramework}
+          onValueChange={setFramework}
+          disabled={frameworks.length === 0}
+        >
+          <SelectTrigger className="h-8 min-w-0 flex-1 text-xs">
+            <SelectValue placeholder="Framework" />
+          </SelectTrigger>
+          <SelectContent>
+            {frameworks.map((f) => (
+              <SelectItem key={f} value={f}>
+                {f}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          className="h-8 shrink-0 gap-1 bg-[var(--foreground)] px-2.5 text-xs text-white hover:bg-black hover:text-white"
+          disabled={!selectedFramework || blast.isFetching}
+          onClick={() => void assess()}
+        >
+          {blast.isFetching ? "…" : "Assess"}
+        </Button>
+      </div>
 
       {blast.data ? (
         <div className="space-y-2 border-t border-[var(--border)] pt-3 text-[11px]">
+          <ExpectedVsFoundChip blast={blast.data} />
           <div className="flex flex-wrap gap-1.5">
             <Badge variant="warning" className="text-[10px]">
-              {(blast.data.affected_nodes ?? []).length} nodes
+              {(blast.data.affected_courses ?? []).length} stale
+            </Badge>
+            <Badge variant="warning" className="text-[10px]">
+              {(blast.data.affected_employees ?? []).length} staff
             </Badge>
             <span className="text-[var(--muted-foreground)]">
-              Emp {(blast.data.affected_employees ?? []).length} · Courses{" "}
-              {(blast.data.affected_courses ?? []).length}
+              {(blast.data.affected_nodes ?? []).length} nodes
             </span>
           </div>
           {!confirmOpen ? (
@@ -234,8 +338,8 @@ export function BlastRadiusPanel({
               {reopen.data.langgraph_interrupt_rearmed &&
               reopen.data.status === "awaiting_approval" ? (
                 <p className="text-[var(--success)]">
-                  <Link href={`/runs/${runId}/plan`} className="underline">
-                    Open Plan for /resume
+                  <Link href={`/runs/${runId}/review/compliance`} className="underline">
+                    Walk review gates from Compliance
                   </Link>
                 </p>
               ) : null}

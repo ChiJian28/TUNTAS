@@ -77,6 +77,32 @@ export const vendorLiveEvidenceSchema = z
   })
   .passthrough();
 
+export const diagnosticPayloadSchema = z
+  .object({
+    summary: z.string().optional(),
+    priority_gaps: z.array(z.record(z.string(), z.unknown())).optional(),
+    cohort_risk_statement: z.string().optional(),
+    gap_frequency: z.record(z.string(), z.number()).optional(),
+    employee_count: z.number().optional(),
+    role_breakdown: z.record(z.string(), z.number()).optional(),
+  })
+  .passthrough();
+
+export const policyPayloadSchema = z
+  .object({
+    control_mappings: z.array(z.record(z.string(), z.unknown())).optional(),
+    nsc07_tc17_note: z.string().optional(),
+    clauses: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough();
+
+export const learningPayloadSchema = z
+  .object({
+    curriculum_modules: z.array(z.record(z.string(), z.unknown())).optional(),
+    scenarios: z.array(z.record(z.string(), z.unknown())).optional(),
+  })
+  .passthrough();
+
 export const vendorPayloadSchema = z
   .object({
     shortlist_notes: z.string().optional(),

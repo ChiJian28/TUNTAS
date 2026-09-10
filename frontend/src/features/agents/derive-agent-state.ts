@@ -75,7 +75,7 @@ export function matchEventTypeToPipelineNode(
   if (t.startsWith("optimizer.") || t === "optimizer" || t.includes("portfolio.optimized")) {
     return "optimizer";
   }
-  if (t.startsWith("approval.") || t.includes("hitl") || t === "approval.gate") {
+  if (t.startsWith("review.gate") || t.startsWith("approval.") || t.includes("hitl") || t === "approval.gate") {
     return "hitl";
   }
   if (t.includes("workflow.parallel_intake") || t === "run.created" || t.startsWith("intake.")) {
@@ -338,6 +338,7 @@ export function recommendedNextAction(opts: {
   status?: RunStatus | null;
   currentNode?: string | null;
   awaitingApproval?: boolean;
+  currentGate?: string | null;
 }): { label: string; href?: string; description: string } {
   const status = opts.status ?? "unknown";
   if (status === "created") {
@@ -353,17 +354,19 @@ export function recommendedNextAction(opts: {
     };
   }
   if (status === "awaiting_approval" || opts.awaitingApproval) {
+    const gate = opts.currentGate || "compliance";
     return {
-      label: "Review portfolio & decide",
-      href: "plan",
-      description: "HITL gate is armed. Open Plan to compare options and approve, revise, or reject.",
+      label: "Walk department review gates",
+      href: `review/${gate}`,
+      description:
+        "HITL is armed. Compliance → (Procurement) → Learning → Operations → Management COMMIT. Nothing is scheduled until the last gate.",
     };
   }
   if (status === "completed") {
     return {
       label: "Review delivery & assurance",
       href: "delivery",
-      description: "Plan is approved. Inspect schedules, artifacts, and assurance evidence.",
+      description: "Management COMMIT succeeded. Inspect schedules, artifacts, and assurance evidence.",
     };
   }
   if (status === "rejected") {

@@ -128,6 +128,7 @@ export default function OverviewPage() {
     status: bundle.run.status,
     currentNode: bundle.run.current_node,
     awaitingApproval: bundle.run.awaiting_approval,
+    currentGate: bundle.review?.current_gate,
   });
   const deepHandoff = search.get("handoff");
   const allHandoffs = handoffs.data ?? bundle.handoffs;

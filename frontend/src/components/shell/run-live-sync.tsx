@@ -122,16 +122,19 @@ export function RunLiveSync({
         void qc.invalidateQueries({ queryKey: queryKeys.run(runId) });
         void qc.invalidateQueries({ queryKey: queryKeys.cockpit(runId) });
         void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
       },
       onHandoff: () => {
         void qc.invalidateQueries({ queryKey: ["handoffs", runId] });
         void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
         void qc.invalidateQueries({ queryKey: queryKeys.cockpit(runId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
       },
       onAudit: () => {
         void qc.invalidateQueries({ queryKey: queryKeys.events(runId) });
         void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
         void qc.invalidateQueries({ queryKey: queryKeys.cockpit(runId) });
+        void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
       },
     });
 

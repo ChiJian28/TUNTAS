@@ -9,13 +9,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { apiQueries } from "@/lib/api/queries";
 import { TuntasApiError } from "@/lib/api/errors";
 import { ArtifactShelf } from "@/features/delivery/artifact-shelf";
+import { DeliveryLock } from "@/features/delivery/delivery-lock";
 import {
   EmployeeDrawer,
   openEmployeeInUrl,
 } from "@/features/runs/employee-drawer";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatKlShort } from "@/lib/format/time";
@@ -58,15 +58,11 @@ export function DeliveryBoard({ runId }: { runId: string }) {
   const assignmentList = assignments.data ?? [];
   const artifactList = artifacts.data ?? cockpit.data?.artifacts ?? [];
 
-  const hasCommitment =
-    sessionList.length > 0 ||
-    assignmentList.length > 0 ||
-    artifactList.length > 0;
+  // Pre-COMMIT statuses stay locked even if a previous cycle left sessions behind.
   const locked =
-    !hasCommitment &&
-    (status == null ||
-      LOCKED_STATUSES.has(status) ||
-      status === "approved_processing");
+    status == null ||
+    LOCKED_STATUSES.has(status) ||
+    status === "approved_processing";
 
   const events = useMemo(
     () =>
@@ -94,12 +90,7 @@ export function DeliveryBoard({ runId }: { runId: string }) {
   }
 
   if (locked) {
-    return (
-      <EmptyState
-        title="No commitment before approval"
-        description="Schedule, assignments, and artifacts remain locked until a successful management approval response. Empty lists below are from the API — not a fake calendar."
-      />
-    );
+    return <DeliveryLock status={status} />;
   }
 
   return (

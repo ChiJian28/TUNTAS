@@ -11,6 +11,8 @@ import type {
   DecisionRequest,
   DecisionResponse,
   ExecuteRunResponse,
+  GateDecisionRequest,
+  ReviewChainView,
   SimulationAttemptRequest,
   SimulationAttemptResponse,
   WhatIfRequest,
@@ -40,6 +42,21 @@ export async function decide(
   return apiPost<DecisionResponse>(`/v1/runs/${runId}/decision`, body, {
     headers: { "Idempotency-Key": idempotencyKey ?? newIdempotencyKey() },
   });
+}
+
+export async function decideGate(
+  runId: string,
+  gateKey: string,
+  body: GateDecisionRequest,
+  idempotencyKey?: string,
+) {
+  return apiPost<ReviewChainView>(
+    `/v1/runs/${runId}/gates/${gateKey}`,
+    body,
+    {
+      headers: { "Idempotency-Key": idempotencyKey ?? newIdempotencyKey() },
+    },
+  );
 }
 
 export async function resumeDecision(
@@ -118,6 +135,7 @@ export function invalidateAfterExecute(qc: QueryClient, runId: string) {
   void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
   void qc.invalidateQueries({ queryKey: ["handoffs", runId] });
   void qc.invalidateQueries({ queryKey: queryKeys.options(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.runStatus(runId) });
 }
 
@@ -135,11 +153,22 @@ export function invalidateAfterDecision(qc: QueryClient, runId: string) {
   void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.approval(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.approvals(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.sessions(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.assignments(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.artifacts(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.assurance(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.runStatus(runId) });
+}
+
+export function invalidateAfterGateDecision(qc: QueryClient, runId: string) {
+  void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.cockpit(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.run(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.runStatus(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.timeline(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.events(runId) });
+  void qc.invalidateQueries({ queryKey: ["handoffs", runId] });
 }
 
 export function invalidateAfterSimProof(qc: QueryClient, runId: string) {
@@ -164,6 +193,7 @@ export function invalidateAfterBlastReopen(qc: QueryClient, runId: string) {
   void qc.invalidateQueries({ queryKey: ["handoffs", runId] });
   void qc.invalidateQueries({ queryKey: queryKeys.options(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.approval(runId) });
+  void qc.invalidateQueries({ queryKey: queryKeys.gates(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.evidenceGraph(runId) });
   void qc.invalidateQueries({ queryKey: queryKeys.runStatus(runId) });
 }

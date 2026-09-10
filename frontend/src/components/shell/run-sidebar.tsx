@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
+  ChevronDown,
   ClipboardCheck,
   FileSearch,
+  GitPullRequest,
   LayoutDashboard,
-  Map,
   PanelLeftClose,
   PanelLeftOpen,
   ShieldCheck,
@@ -18,10 +20,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useUiStore } from "@/stores/ui-store";
+import { apiQueries } from "@/lib/api/queries";
+import { REVIEW_GATES, reviewHref } from "@/lib/constants/gates";
 
-const SECTIONS = [
+const TOP_SECTIONS = [
   { slug: "overview", label: "Overview", icon: LayoutDashboard },
-  { slug: "plan", label: "Plan", icon: Map },
   { slug: "evidence", label: "Evidence", icon: FileSearch },
   { slug: "delivery", label: "Delivery", icon: Truck },
   { slug: "assurance", label: "Assurance", icon: ShieldCheck },
@@ -41,6 +44,13 @@ export function RunSidebar({
   const pathname = usePathname();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const setSidebarCollapsed = useUiStore((s) => s.setSidebarCollapsed);
+  const reviewActive = pathname.includes(`/runs/${runId}/review`);
+  const [reviewOpen, setReviewOpen] = useState(reviewActive);
+  const gates = useQuery(apiQueries.gates(runId));
+
+  useEffect(() => {
+    if (reviewActive) setReviewOpen(true);
+  }, [reviewActive]);
 
   useEffect(() => {
     try {
@@ -60,6 +70,8 @@ export function RunSidebar({
       document.documentElement.style.setProperty("--sidebar-width", "0px");
     };
   }, [collapsed]);
+
+  const currentGate = gates.data?.current_gate ?? "compliance";
 
   return (
     <aside
@@ -113,52 +125,105 @@ export function RunSidebar({
         )}
         aria-label="Run sections"
       >
-        {SECTIONS.map(({ slug, label, icon: Icon }) => {
-          const href = `/runs/${runId}/${slug}`;
-          const active = pathname === href || pathname.startsWith(`${href}/`);
-          return (
-            <Link
-              key={slug}
-              href={href}
-              title={label}
-              aria-label={label}
+        <NavLink
+          href={`/runs/${runId}/overview`}
+          label="Overview"
+          icon={LayoutDashboard}
+          collapsed={collapsed}
+          active={pathname.includes("/overview")}
+        />
+
+        {collapsed ? (
+          <NavLink
+            href={reviewHref(runId, currentGate)}
+            label="Review"
+            icon={GitPullRequest}
+            collapsed
+            active={reviewActive}
+          />
+        ) : (
+          <div className="mt-1">
+            <button
+              type="button"
+              onClick={() => setReviewOpen((v) => !v)}
               className={cn(
-                "relative flex items-center rounded-xl text-sm transition-colors",
-                collapsed
-                  ? "size-10 justify-center"
-                  : "gap-2.5 px-3 py-2.5",
-                active
+                "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm",
+                reviewActive
                   ? "bg-[var(--primary-soft)] text-[var(--foreground)]"
                   : "text-[var(--body)] hover:bg-[var(--surface-emphasis)]",
               )}
+              aria-expanded={reviewOpen}
             >
-              {active && !collapsed ? (
-                <span
-                  className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-[var(--primary)]"
-                  aria-hidden
-                />
-              ) : null}
-              {active && collapsed ? (
-                <span
-                  className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-[var(--primary)]"
-                  aria-hidden
-                />
-              ) : null}
-              <Icon
+              <GitPullRequest
                 className={cn(
                   "size-4 shrink-0",
-                  active
+                  reviewActive
                     ? "text-[var(--primary)]"
                     : "text-[var(--muted-foreground)]",
                 )}
                 aria-hidden
               />
-              {!collapsed ? (
-                <span className={cn(active && "font-medium")}>{label}</span>
-              ) : null}
-            </Link>
-          );
-        })}
+              <span className={cn("flex-1 text-left", reviewActive && "font-medium")}>
+                Review
+              </span>
+              <ChevronDown
+                className={cn(
+                  "size-3.5 text-[var(--muted-foreground)] transition-transform",
+                  reviewOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+            {reviewOpen ? (
+              <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-[var(--border)] pl-2">
+                {REVIEW_GATES.map((item) => {
+                  const href = reviewHref(runId, item.key);
+                  const active = pathname === href || pathname.startsWith(`${href}/`);
+                  const g = gates.data?.gates.find((row) => row.gate_key === item.key);
+                  const mark =
+                    g?.status === "approved"
+                      ? "✓"
+                      : g?.status === "skipped"
+                        ? "—"
+                        : g?.status === "active" || gates.data?.current_gate === item.key
+                          ? "●"
+                          : "";
+                  return (
+                    <Link
+                      key={item.key}
+                      href={href}
+                      className={cn(
+                        "flex items-center justify-between rounded-lg px-2 py-1.5 text-[13px]",
+                        active
+                          ? "bg-[var(--primary-soft)] font-medium text-[var(--foreground)]"
+                          : "text-[var(--body)] hover:bg-[var(--surface-emphasis)]",
+                        g?.status === "skipped" && "text-[var(--muted-foreground)]",
+                      )}
+                    >
+                      <span>{item.label}</span>
+                      <span className="font-mono text-[10px] text-[var(--muted-foreground)]">
+                        {mark}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {TOP_SECTIONS.filter((s) => s.slug !== "overview").map(
+          ({ slug, label, icon }) => (
+            <NavLink
+              key={slug}
+              href={`/runs/${runId}/${slug}`}
+              label={label}
+              icon={icon}
+              collapsed={collapsed}
+              active={pathname.includes(`/${slug}`)}
+            />
+          ),
+        )}
       </nav>
 
       <div
@@ -186,5 +251,57 @@ export function RunSidebar({
         </Link>
       </div>
     </aside>
+  );
+}
+
+function NavLink({
+  href,
+  label,
+  icon: Icon,
+  collapsed,
+  active,
+}: {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  collapsed: boolean;
+  active: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      title={label}
+      aria-label={label}
+      className={cn(
+        "relative flex items-center rounded-xl text-sm transition-colors",
+        collapsed ? "size-10 justify-center" : "gap-2.5 px-3 py-2.5",
+        active
+          ? "bg-[var(--primary-soft)] text-[var(--foreground)]"
+          : "text-[var(--body)] hover:bg-[var(--surface-emphasis)]",
+      )}
+    >
+      {active && !collapsed ? (
+        <span
+          className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-[var(--primary)]"
+          aria-hidden
+        />
+      ) : null}
+      {active && collapsed ? (
+        <span
+          className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-[var(--primary)]"
+          aria-hidden
+        />
+      ) : null}
+      <Icon
+        className={cn(
+          "size-4 shrink-0",
+          active ? "text-[var(--primary)]" : "text-[var(--muted-foreground)]",
+        )}
+        aria-hidden
+      />
+      {!collapsed ? (
+        <span className={cn(active && "font-medium")}>{label}</span>
+      ) : null}
+    </Link>
   );
 }

@@ -87,6 +87,8 @@ export function WhatIfPanel({ runId }: { runId: string }) {
         total_budget_myr: parseOptionalNumber(totalBudgetValue),
         min_operational_coverage_ratio: parseOptionalNumber(minCoverageValue),
         apply,
+        allow_coverage_relax:
+          (parseOptionalNumber(minCoverageValue) ?? 0.7) < 0.9,
       }),
     onMutate: () => {
       const id = pushMutation("Solving CP-SAT…");
@@ -105,7 +107,9 @@ export function WhatIfPanel({ runId }: { runId: string }) {
       setTotalBudget(null);
       setMinCoverage(null);
       invalidateAfterWhatIf(qc, runId);
-      if (data.applied && data.checkpoint_synced) {
+      if (String(data.solver_status ?? "").toLowerCase().includes("infeasible")) {
+        toast.error(data.infeasible_reason || "OR-Tools returned INFEASIBLE");
+      } else if (data.applied && data.checkpoint_synced) {
         toast.success("Applied and ready for approval");
       } else if (!data.applied) {
         toast.message("Preview only — not applied to checkpoint");
@@ -296,6 +300,27 @@ export function WhatIfPanel({ runId }: { runId: string }) {
               </p>
             ) : null}
             <ul className="space-y-1 text-xs">
+              {lastResponse.data.solver_status ? (
+                <li>
+                  <Badge
+                    variant={
+                      String(lastResponse.data.solver_status)
+                        .toLowerCase()
+                        .includes("infeasible")
+                        ? "destructive"
+                        : "success"
+                    }
+                    className="text-[10px]"
+                  >
+                    {lastResponse.data.solver_status}
+                  </Badge>
+                  {lastResponse.data.infeasible_reason ? (
+                    <p className="mt-1 text-[11px] leading-snug text-[var(--muted-foreground)]">
+                      {lastResponse.data.infeasible_reason}
+                    </p>
+                  ) : null}
+                </li>
+              ) : null}
               {lastResponse.data.options.map((o) => (
                 <li
                   key={o.option_key}

@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ApprovalTab } from "@/features/audit/approval-tab";
 import { ArtifactsTab } from "@/features/audit/artifacts-tab";
 import { EventsTab } from "@/features/audit/events-tab";
+import { GatesTab } from "@/features/audit/gates-tab";
 import { HandoffsTab } from "@/features/audit/handoffs-tab";
 import { MetricsTab } from "@/features/audit/metrics-tab";
 import { ProofLensTag } from "@/components/proof-lens/proof-lens-tag";
@@ -36,13 +37,15 @@ export function AuditWorkspace({ runId }: Props) {
 
   useEffect(() => {
     if (handoffDeepLink) setTab("handoffs");
-  }, [handoffDeepLink]);
+    else if (tabParam === "gates") setTab("gates");
+  }, [handoffDeepLink, tabParam]);
 
   const meQ = useQuery(apiQueries.me);
   const eventsQ = useQuery(apiQueries.events(runId));
   const handoffsQ = useQuery(apiQueries.handoffs(runId, false));
   const approvalQ = useQuery(apiQueries.approval(runId));
   const approvalsQ = useQuery(apiQueries.approvals(runId));
+  const gatesQ = useQuery(apiQueries.gates(runId));
   const artifactsQ = useQuery(apiQueries.artifacts(runId));
   const metricsQ = useQuery(apiQueries.metrics);
 
@@ -51,6 +54,7 @@ export function AuditWorkspace({ runId }: Props) {
     handoffsQ.isLoading ||
     approvalQ.isLoading ||
     approvalsQ.isLoading ||
+    gatesQ.isLoading ||
     artifactsQ.isLoading ||
     metricsQ.isLoading ||
     meQ.isLoading;
@@ -60,6 +64,7 @@ export function AuditWorkspace({ runId }: Props) {
     handoffsQ.error ||
     approvalQ.error ||
     approvalsQ.error ||
+    gatesQ.error ||
     artifactsQ.error ||
     metricsQ.error ||
     meQ.error;
@@ -87,6 +92,7 @@ export function AuditWorkspace({ runId }: Props) {
             void handoffsQ.refetch();
             void approvalQ.refetch();
             void approvalsQ.refetch();
+            void gatesQ.refetch();
             void artifactsQ.refetch();
             void metricsQ.refetch();
             void meQ.refetch();
@@ -150,6 +156,7 @@ export function AuditWorkspace({ runId }: Props) {
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="approval">Approval</TabsTrigger>
+          <TabsTrigger value="gates">Gates</TabsTrigger>
           <TabsTrigger value="artifacts">Artifact integrity</TabsTrigger>
           <TabsTrigger value="metrics">Global metrics</TabsTrigger>
         </TabsList>
@@ -175,6 +182,9 @@ export function AuditWorkspace({ runId }: Props) {
             latest={approvalQ.data}
             history={approvalsQ.data ?? []}
           />
+        </TabsContent>
+        <TabsContent value="gates" className="mt-4">
+          <GatesTab chain={gatesQ.data} />
         </TabsContent>
         <TabsContent value="artifacts" className="mt-4">
           <ArtifactsTab artifacts={artifactsQ.data ?? []} />

@@ -10,11 +10,11 @@ export function DeliveryLock({ status }: DeliveryLockProps) {
   return (
     <EmptyState
       icon={<Lock className="size-5" aria-hidden />}
-      title="No commitment before approval"
+      title="No commitment before management COMMIT"
       description={
         status
-          ? `Awaiting management approval; no schedule has been committed. Run status: ${status}. Sessions, assignments, and artifacts are empty from the API — no preview calendar is invented.`
-          : "Awaiting management approval; no schedule has been committed. Sessions, assignments, and artifacts are empty from the API — no preview calendar is invented."
+          ? `Department gates and Management COMMIT have not committed a schedule. Run status: ${status}. Sessions, assignments, and artifacts stay empty until POST /decision succeeds.`
+          : "Department gates and Management COMMIT have not committed a schedule. Sessions, assignments, and artifacts stay empty until POST /decision succeeds."
       }
       className="min-h-[320px]"
     />

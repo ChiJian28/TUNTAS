@@ -54,6 +54,7 @@ export function ApprovalGate({
   const me = useQuery(apiQueries.me);
   const cockpit = useQuery(apiQueries.cockpit(runId));
   const options = useQuery(apiQueries.options(runId));
+  const gates = useQuery(apiQueries.gates(runId));
 
   const [decision, setDecision] = useState<"approve" | "reject" | "revise">(
     "approve",
@@ -62,7 +63,12 @@ export function ApprovalGate({
   const [conditions, setConditions] = useState<string[]>([]);
   const [conditionDraft, setConditionDraft] = useState("");
   const [returnToStage, setReturnToStage] = useState<
-    "learning_architect" | "challenger" | "optimizer" | "secretariat" | ""
+    | "parallel_intake"
+    | "learning_architect"
+    | "challenger"
+    | "optimizer"
+    | "secretariat"
+    | ""
   >("");
 
   const optionKey = selectedOptionKey;
@@ -74,10 +80,16 @@ export function ApprovalGate({
     [options.data, cockpit.data?.options, optionKey],
   );
 
+  // Fail closed: never unlock COMMIT from a stale cockpit snapshot if /gates failed.
+  const chain = gates.isSuccess ? gates.data : null;
+  const commitUnlocked = gates.isSuccess && chain?.commit_unlocked === true;
+  const missingGates = chain?.commit_blocked_by ?? [];
+
   const canApprove =
     !!optionKey &&
     selected?.hard_constraint_ok !== false &&
-    rationale.trim().length >= 8;
+    rationale.trim().length >= 8 &&
+    commitUnlocked;
 
   const [submitError, setSubmitError] = useState<TuntasApiError | null>(null);
 
@@ -163,10 +175,11 @@ export function ApprovalGate({
         </CardTitle>
         <CardDescription>
           AI recommends; algorithms prove feasibility; humans decide. Schedule and
-          artifacts stay locked until this mutation succeeds.
+          artifacts stay locked until this mutation succeeds — and only after
+          prior department gates are approved.
           {mode === "resume"
             ? " Using POST /resume after policy reopen."
-            : " Using POST /decision for the initial gate."}
+            : " Using POST /decision for the Management COMMIT."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -187,6 +200,18 @@ export function ApprovalGate({
           {selected?.hard_constraint_ok === false ? (
             <Badge variant="destructive">Hard constraints failed — cannot approve</Badge>
           ) : null}
+          {gates.isError ? (
+            <Badge variant="destructive">
+              Gate chain unavailable — COMMIT stays locked
+            </Badge>
+          ) : !commitUnlocked ? (
+            <Badge variant="warning">
+              Prior gates required
+              {missingGates.length ? `: ${missingGates.join(", ")}` : ""}
+            </Badge>
+          ) : (
+            <Badge variant="success">Department chain complete — COMMIT allowed</Badge>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -220,6 +245,7 @@ export function ApprovalGate({
                 <SelectValue placeholder="Select stage" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="parallel_intake">Parallel intake</SelectItem>
                 <SelectItem value="learning_architect">Learning Architect</SelectItem>
                 <SelectItem value="challenger">Challenger</SelectItem>
                 <SelectItem value="optimizer">Optimizer</SelectItem>
@@ -304,6 +330,7 @@ export function ApprovalGate({
             mutation.isPending ||
             !optionKey ||
             rationale.trim().length < 8 ||
+            !commitUnlocked ||
             (decision === "approve" && !canApprove) ||
             (decision === "revise" && !returnToStage)
           }

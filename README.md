@@ -1,10 +1,9 @@
 # TUNTAS
 
 <p align="center">
-  <img src="./assets/camelXworkbuddy.png" alt="TUNTAS Camel × WorkBuddy" width="820" />
-</p>
-<p align="center">
-  <img src="./assets/cover_image.png" alt="TUNTAS cover" width="820" />
+  <img src="./assets/camelXworkbuddy.png" alt="TUNTAS Camel × WorkBuddy" width="48%" />
+  &nbsp;
+  <img src="./assets/cover_image.png" alt="TUNTAS cover" width="48%" />
 </p>
 <p align="center">
   <img src="./assets/camel.png" alt="Tuntas Camel character sheet" width="380" />

@@ -31,6 +31,55 @@ def _latest_handoff_payload(run_id: str, agent_name: str) -> dict[str, Any]:
     return raw.get("payload") or raw
 
 
+def reopen_employee_subset(
+    *,
+    framework_code: str,
+    blast_employees: list[str],
+    blast_courses: list[str],
+    all_employees: list[dict[str, Any]],
+    courses: list[dict[str, Any]],
+) -> list[str]:
+    """Who to recompile after a policy change.
+
+    Circular / gold frameworks (BNM_ORTC_2026): blast list only. Do not expand
+    via competency_gaps ∩ stale-course competencies — that false-positives
+    CS staff (EMP-SYN-007/008) who share FSF_PR110 with the three stale programmes.
+
+    Legacy RMiT: keep the old competency expansion.
+    """
+    from app.services.gold import gold_for_framework
+
+    refs = {str(r) for r in blast_employees if r}
+    if gold_for_framework(framework_code):
+        return sorted(refs)
+
+    if blast_courses:
+        affected_comps: set[str] = set()
+        course_set = set(blast_courses)
+        for course in courses:
+            if course.get("code") in course_set:
+                affected_comps.update(course.get("competency_codes") or [])
+        for emp in all_employees:
+            gaps = {g.get("code") for g in emp.get("competency_gaps") or []}
+            if gaps & affected_comps:
+                refs.add(emp["employee_ref"])
+    return sorted(refs)
+
+
+def interrupt_rearmed_from_rearm(rearm: dict[str, Any] | None) -> bool:
+    """True only when LangGraph reported a pending interrupt.
+
+    Do not infer this from HTTP 200 or from having called rearm_approval_interrupt.
+    """
+    if not isinstance(rearm, dict):
+        return False
+    if rearm.get("interrupted") is True:
+        return True
+    if rearm.get("interrupt_pending") is True:
+        return True
+    return False
+
+
 def selective_recompile(
     run_id: str,
     *,
@@ -48,7 +97,40 @@ def selective_recompile(
         raise ValueError("run not found")
 
     radius = evidence.blast_radius(run_id, framework_code)
-    # First mark stale
+    trigger = run["trigger_payload"]
+    all_employees = list(trigger.get("employees") or [])
+    vendor_payload = _latest_handoff_payload(run_id, "vendor_intelligence")
+    courses = list(vendor_payload.get("courses") or [])
+    affected_refs = set(
+        reopen_employee_subset(
+            framework_code=framework_code,
+            blast_employees=list(radius.get("affected_employees") or []),
+            blast_courses=list(radius.get("affected_courses") or []),
+            all_employees=all_employees,
+            courses=courses,
+        )
+    )
+    from app.services.gold import gold_for_framework
+
+    circular = bool(gold_for_framework(framework_code))
+    subset = [e for e in all_employees if e["employee_ref"] in affected_refs]
+    if circular and not affected_refs:
+        return {
+            "run_id": run_id,
+            "status": run.get("status") or "unknown",
+            "framework_code": framework_code,
+            "recompiled_employee_count": 0,
+            "affected_employees": [],
+            "langgraph_interrupt_rearmed": False,
+            "options": [],
+            "message": (
+                "No circular-scoped red paths to reopen. "
+                "Ingest the circular first; will not fall back to the full cohort."
+            ),
+        }
+    if not subset:
+        subset = all_employees
+
     evidence.reopen_affected_paths(
         run_id,
         framework_code=framework_code,
@@ -56,25 +138,6 @@ def selective_recompile(
         actor_id=actor_id,
         actor_role=actor_role,
     )
-
-    trigger = run["trigger_payload"]
-    all_employees = list(trigger.get("employees") or [])
-    affected_refs = set(radius.get("affected_employees") or [])
-    affected_courses = set(radius.get("affected_courses") or [])
-    # Also include employees whose competency gaps intersect affected course competencies
-    vendor_payload = _latest_handoff_payload(run_id, "vendor_intelligence")
-    courses = list(vendor_payload.get("courses") or [])
-    if affected_courses:
-        affected_comps = set()
-        for c in courses:
-            if c.get("code") in affected_courses:
-                affected_comps.update(c.get("competency_codes") or [])
-        for emp in all_employees:
-            gaps = {g.get("code") for g in emp.get("competency_gaps") or []}
-            if gaps & affected_comps:
-                affected_refs.add(emp["employee_ref"])
-    # If blast query found no employees, recompile full cohort (safe fallback)
-    subset = [e for e in all_employees if e["employee_ref"] in affected_refs] or all_employees
 
     from app.services.handoff_contract import validate_handoff_envelope
 
@@ -158,20 +221,29 @@ def selective_recompile(
     }
     # CRITICAL: re-seat LangGraph at interrupt() — DB status alone is not enough.
     # After END, Command(resume=...) is a silent no-op.
+    from app.graph.interrupt_status import InterruptRearmError
     from app.graph.workflow import rearm_approval_interrupt
 
-    rearm = rearm_approval_interrupt(
-        run_id,
-        trigger=trigger,
-        portfolios=portfolios,
-        portfolio_ids=ids,
-        challenger=challenger,
-        vendor=vendor_state,
-        policy=policy,
-        actor_id=actor_id,
-        actor_role=actor_role,
-    )
+    try:
+        rearm = rearm_approval_interrupt(
+            run_id,
+            trigger=trigger,
+            portfolios=portfolios,
+            portfolio_ids=ids,
+            challenger=challenger,
+            vendor=vendor_state,
+            policy=policy,
+            actor_id=actor_id,
+            actor_role=actor_role,
+        )
+    except InterruptRearmError as exc:
+        rearm = {
+            "interrupted": False,
+            "interrupt_pending": False,
+            "error": str(exc),
+        }
 
+    interrupt_rearmed = interrupt_rearmed_from_rearm(rearm)
     audit.append_event(
         run_id=run_id,
         event_type="policy.blast_radius.recompiled",
@@ -183,17 +255,31 @@ def selective_recompile(
             "subset_size": n,
             "portfolio_ids": ids,
             "vetoes": sorted(vetoes),
-            "langgraph_rearmed": True,
-            "interrupt_pending": rearm.get("interrupted"),
+            "langgraph_rearmed": interrupt_rearmed,
+            "interrupt_pending": interrupt_rearmed,
+            "next": rearm.get("next"),
+            "rearm_error": rearm.get("error"),
         },
     )
+    if interrupt_rearmed:
+        status = "awaiting_approval"
+        message = (
+            "Affected paths recompiled; LangGraph re-armed at approval interrupt; "
+            "management re-approval required."
+        )
+    else:
+        status = run.get("status") or "unknown"
+        message = (
+            "Affected paths recompiled but LangGraph interrupt is not pending; "
+            "do not resume until the approval gate is re-armed."
+        )
     return {
         "run_id": run_id,
-        "status": "awaiting_approval",
+        "status": status,
         "framework_code": framework_code,
         "recompiled_employee_count": n,
         "affected_employees": sorted(affected_refs),
-        "langgraph_interrupt_rearmed": True,
+        "langgraph_interrupt_rearmed": interrupt_rearmed,
         "options": [
             {
                 "option_key": p["option_key"],
@@ -204,8 +290,5 @@ def selective_recompile(
             }
             for p in portfolios
         ],
-        "message": (
-            "Affected paths recompiled; LangGraph re-armed at approval interrupt; "
-            "management re-approval required."
-        ),
+        "message": message,
     }

@@ -45,7 +45,11 @@ class DecisionRequest(BaseModel):
     acting_manager_id: str | None = None
     # For revise — which stage to return to
     return_to_stage: Literal[
-        "learning_architect", "challenger", "optimizer", "secretariat"
+        "parallel_intake",
+        "learning_architect",
+        "challenger",
+        "optimizer",
+        "secretariat",
     ] | None = None
     # Stale-approval guard: reject if DB/checkpoint portfolios changed (e.g. after what-if)
     expected_portfolio_version: str | None = None
@@ -57,6 +61,23 @@ class WhatIfRequest(BaseModel):
     min_operational_coverage_ratio: float | None = None
     # False = preview only (no DB/checkpoint write). True = apply + sync for approval.
     apply: bool = True
+    # False = WorkBuddy / stress: return INFEASIBLE instead of silently dropping coverage 0.2.
+    allow_coverage_relax: bool = True
+
+
+class IngestCircularRequest(BaseModel):
+    framework_code: str = "BNM_ORTC_2026"
+    circular_id: str = "BNM-ORTC-2026-1"
+    title: str | None = None
+    source: Literal["lexiang", "paste", "fixture"] = "fixture"
+    text: str | None = None
+    use_gold_mapping: bool = True
+
+
+class AssessPolicyChangeRequest(BaseModel):
+    framework_code: str = "BNM_ORTC_2026"
+    reopen: bool = False
+    reason: str = "policy_version_change"
 
 
 class BlastReopenRequest(BaseModel):
@@ -64,11 +85,27 @@ class BlastReopenRequest(BaseModel):
     reason: str = "policy_version_change"
 
 
+class GateDecisionRequest(BaseModel):
+    decision: Literal["approve", "reject", "revise"]
+    rationale: str = Field(min_length=8)
+    conditions: list[str] = Field(default_factory=list)
+    acting_manager_id: str | None = None
+    return_to_stage: Literal[
+        "parallel_intake",
+        "learning_architect",
+        "challenger",
+        "optimizer",
+        "secretariat",
+    ] | None = None
+
+
 class DecisionResponse(BaseModel):
     run_id: str
     status: str
     decision_id: str | None = None
     message: str
+    commit_unlocked: bool | None = None
+    current_gate: str | None = None
 
 
 class SimulationAttemptRequest(BaseModel):

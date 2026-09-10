@@ -380,6 +380,34 @@ CREATE TABLE IF NOT EXISTS tuntas.outbox (
   processed_at TIMESTAMPTZ
 );
 
+-- Serial department HITL gates. Management COMMIT stays in approval_decisions.
+-- Gates 1-4 never write sessions / assignments / artifacts.
+CREATE TABLE IF NOT EXISTS tuntas.review_gates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  run_id UUID NOT NULL REFERENCES tuntas.workflow_runs(id) ON DELETE CASCADE,
+  gate_key TEXT NOT NULL CHECK (
+    gate_key IN ('compliance', 'procurement', 'learning', 'operations', 'management')
+  ),
+  sequence INT NOT NULL CHECK (sequence BETWEEN 1 AND 5),
+  status TEXT NOT NULL CHECK (
+    status IN ('pending', 'active', 'approved', 'rejected', 'skipped')
+  ),
+  decision TEXT CHECK (decision IN ('approve', 'reject', 'revise')),
+  rationale TEXT,
+  conditions JSONB NOT NULL DEFAULT '[]'::jsonb,
+  actor_id TEXT,
+  actor_role TEXT,
+  input_hash TEXT,
+  return_to_stage TEXT,
+  decided_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (run_id, gate_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_review_gates_run
+  ON tuntas.review_gates(run_id, sequence);
+
 -- Client Idempotency-Key for POST /decision (and future mutations)
 CREATE TABLE IF NOT EXISTS tuntas.mutation_idempotency (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -410,6 +438,7 @@ ALTER TABLE tuntas.audit_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tuntas.artifacts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tuntas.portfolio_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tuntas.approval_decisions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tuntas.review_gates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tuntas.evidence_nodes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tuntas.evidence_edges ENABLE ROW LEVEL SECURITY;
 

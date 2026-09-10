@@ -7,7 +7,9 @@ from typing import Annotated, AsyncIterator
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 
+from app.graph.interrupt_status import InterruptRearmError
 from app.graph.workflow import (
+    ensure_approval_interrupt,
     execute_run,
     portfolio_version_hash,
     resume_with_decision,
@@ -19,6 +21,7 @@ from app.schemas.api import (
     DecisionRequest,
     DecisionResponse,
     ExecuteRunResponse,
+    GateDecisionRequest,
     PortfolioOptionView,
     RunDetail,
     RunEvent,
@@ -28,16 +31,28 @@ from app.schemas.api import (
 from app.schemas.cockpit import (
     AssuranceRefreshResponse,
     PortfolioOptionDetail,
+    ReviewChainView,
     WhatIfResponse,
+    WorkbuddyBriefResponse,
 )
 from app.security.crypto import hash_payload
 from app.services import cockpit as cockpit_svc
 from app.security.auth import Principal, require_roles
-from app.services import audit, idempotency, runs as run_store
+from app.services import audit, idempotency, review_gates, runs as run_store
+from app.services import workbuddy_briefs
 from app.services.realtime import get_hub, serialize_audit_row
 from app.services.trigger import TriggerAdapterError, load_trigger
 
 router = APIRouter(prefix="/v1/runs", tags=["runs"])
+
+
+def _http_gate(exc: review_gates.ReviewGateError) -> HTTPException:
+    detail: dict | str
+    if exc.details:
+        detail = {"message": exc.message, **exc.details}
+    else:
+        detail = exc.message
+    return HTTPException(status_code=exc.status_code, detail=detail)
 
 
 @router.post("", response_model=CreateRunResponse)
@@ -277,6 +292,120 @@ def get_run_status(
     )
 
 
+@router.get("/{run_id}/gates", response_model=ReviewChainView)
+def get_review_gates(
+    run_id: str,
+    principal: Principal = Depends(
+        require_roles("viewer", "analyst", "manager", "compliance", "admin", "mcp_service")
+    ),
+) -> ReviewChainView:
+    """Serial department HITL chain. Does not COMMIT schedule/artifacts."""
+    try:
+        chain = review_gates.get_chain(run_id, actor_role=principal.role)
+    except review_gates.ReviewGateError as exc:
+        raise _http_gate(exc) from exc
+    return ReviewChainView(**chain)
+
+
+@router.get("/{run_id}/workbuddy-brief", response_model=WorkbuddyBriefResponse)
+def get_workbuddy_brief(
+    run_id: str,
+    view: str = Query(
+        "dispatcher",
+        description=(
+            "dispatcher | capability | compliance | procurement | "
+            "learning | operations | management"
+        ),
+    ),
+    principal: Principal = Depends(
+        require_roles("viewer", "analyst", "manager", "compliance", "admin", "mcp_service")
+    ),
+) -> WorkbuddyBriefResponse:
+    """Paste-ready WorkBuddy materials. Does not write gates or schedules."""
+    allowed = {
+        "dispatcher",
+        "capability",
+        "compliance",
+        "procurement",
+        "learning",
+        "operations",
+        "management",
+    }
+    if view not in allowed:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown workbuddy brief view {view}. Allowed: {sorted(allowed)}",
+        )
+    if not run_store.get_run(run_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="run not found")
+    payload = workbuddy_briefs.build_workbuddy_brief(run_id, view)  # type: ignore[arg-type]
+    return WorkbuddyBriefResponse(**payload)
+
+
+@router.post("/{run_id}/gates/{gate_key}", response_model=ReviewChainView)
+def decide_review_gate(
+    run_id: str,
+    gate_key: str,
+    body: GateDecisionRequest,
+    principal: Principal = Depends(
+        require_roles("analyst", "manager", "compliance", "admin", "mcp_service")
+    ),
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> ReviewChainView:
+    """Approve / reject / revise one department gate (not Management COMMIT)."""
+    actor_id = principal.subject
+    actor_role = principal.role
+    if principal.role == "mcp_service":
+        if not body.acting_manager_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="MCP gate decisions require acting_manager_id for audit attribution",
+            )
+        actor_id = body.acting_manager_id
+        actor_role = "manager"
+
+    request_fingerprint = {
+        "gate_key": gate_key,
+        "decision": body.decision,
+        "rationale": body.rationale,
+        "conditions": body.conditions,
+        "return_to_stage": body.return_to_stage,
+        "actor_id": actor_id,
+    }
+    req_hash = hash_payload(request_fingerprint)
+    scope = f"review-gate:{run_id}:{gate_key}"
+    if idempotency_key:
+        cached = idempotency.get_cached(scope, idempotency_key)
+        if cached:
+            if cached["request_hash"] != req_hash:
+                raise HTTPException(
+                    status.HTTP_409_CONFLICT,
+                    detail="Idempotency-Key reused with a different gate payload",
+                )
+            return ReviewChainView(**cached["response"])
+
+    try:
+        result = review_gates.decide_department_gate(
+            run_id,
+            gate_key,
+            decision=body.decision,
+            rationale=body.rationale,
+            conditions=body.conditions,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            return_to_stage=body.return_to_stage,
+        )
+    except review_gates.ReviewGateError as exc:
+        raise _http_gate(exc) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    view = ReviewChainView(**result)
+    if idempotency_key:
+        idempotency.put_cached(scope, idempotency_key, req_hash, view.model_dump(mode="json"))
+    return view
+
+
 @router.post("/{run_id}/decision", response_model=DecisionResponse)
 def decide(
     run_id: str,
@@ -333,9 +462,41 @@ def decide(
             detail="Decision only allowed when status=awaiting_approval",
         )
 
-    # Re-hydrate checkpoint from DB so what-if apply is the approval source of truth
     try:
+        review_gates.assert_commit_allowed(run_id)
+    except review_gates.ReviewGateError as exc:
+        audit.append_event(
+            run_id=run_id,
+            event_type="approval.bypass_attempt",
+            actor_id=principal.subject,
+            actor_role=principal.role,
+            payload={
+                "status": run["status"],
+                "attempted_decision": body.decision,
+                "reason": "prior_gates_incomplete",
+                **exc.details,
+            },
+        )
+        raise _http_gate(exc) from exc
+
+    # Re-seat LangGraph interrupt if Playbook 1 already ENDed, then hydrate
+    # portfolios onto that interrupt. Do not reset department signatures.
+    try:
+        ensure_approval_interrupt(
+            run_id,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            reset_gates=False,
+        )
         sync = sync_portfolios_into_checkpoint(run_id)
+        ensure_approval_interrupt(
+            run_id,
+            actor_id=actor_id,
+            actor_role=actor_role,
+            reset_gates=False,
+        )
+    except InterruptRearmError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
@@ -412,11 +573,41 @@ def decide(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
+    try:
+        if body.decision == "revise":
+            review_gates.reset_from_stage(
+                run_id, body.return_to_stage or "learning_architect"
+            )
+        review_gates.mark_management_decision(
+            run_id,
+            decision=body.decision,
+            rationale=body.rationale,
+            conditions=body.conditions,
+            actor_id=actor_id,
+            actor_role=actor_role,
+        )
+    except Exception:  # noqa: BLE001 — COMMIT already applied; do not roll it back here
+        audit.append_event(
+            run_id=run_id,
+            event_type="review.gate.management_sync_failed",
+            actor_id=actor_id,
+            actor_role=actor_role,
+            payload={"decision": body.decision},
+        )
+
+    chain = None
+    try:
+        chain = review_gates.get_chain(run_id, actor_role=actor_role)
+    except Exception:  # noqa: BLE001
+        chain = None
+
     resp = DecisionResponse(
         run_id=run_id,
         status=result.get("status") or "unknown",
         decision_id=(result.get("decision") or {}).get("decision_id"),
         message="Decision applied",
+        commit_unlocked=bool(chain["commit_unlocked"]) if chain else None,
+        current_gate=chain.get("current_gate") if chain else None,
     )
     if idempotency_key:
         idempotency.put_cached(scope, idempotency_key, req_hash, resp.model_dump())
@@ -451,6 +642,7 @@ def what_if(
             total_budget=body.total_budget_myr,
             min_operational_coverage=body.min_operational_coverage_ratio,
             apply=body.apply,
+            allow_coverage_relax=body.allow_coverage_relax,
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
@@ -462,6 +654,9 @@ def what_if(
         applied=bool(result.get("applied")),
         checkpoint_synced=bool(result.get("checkpoint_synced")),
         portfolio_version=result.get("portfolio_version"),
+        solver_status=result.get("solver_status"),
+        infeasible_reason=result.get("infeasible_reason"),
+        allow_coverage_relax=result.get("allow_coverage_relax"),
         options=[
             PortfolioOptionDetail(
                 id=ids.get(p["option_key"]) or ("whatif-" + p["option_key"]),

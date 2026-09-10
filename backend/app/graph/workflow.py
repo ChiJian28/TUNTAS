@@ -9,12 +9,17 @@ from langgraph.types import Command, interrupt
 
 from app.agents import pipeline as agents
 from app.graph.checkpoint import get_checkpointer
+from app.graph.interrupt_status import (
+    InterruptRearmError,
+    interrupt_pending as _interrupt_pending,
+    rearm_result_from_snapshot,
+)
 from app.security.crypto import hash_payload
 from app.services import audit, evidence
 from app.services.domain_seed import seed_run_domain
 from app.services.finalize import commit_approval_atomically, process_export_outbox
 from app.services.llm import GeminiClient
-from app.services.optimizer import build_three_portfolios
+from app.services.optimizer import build_three_portfolios, infeasible_reason_for
 from app.services import runs as run_store
 from app.services.trigger import strip_for_llm
 
@@ -102,9 +107,10 @@ def sync_portfolios_into_checkpoint(
     graph = get_graph()
     thread = _thread_config(run_id)
     snap = graph.get_state(thread)
+    pending_before = _interrupt_pending(snap)
     values = getattr(snap, "values", None) or {}
     synced = False
-    if _interrupt_pending(snap) or values:
+    if pending_before:
         graph.update_state(
             thread,
             {
@@ -114,6 +120,18 @@ def sync_portfolios_into_checkpoint(
             },
         )
         synced = True
+        snap_after = graph.get_state(thread)
+        if not _interrupt_pending(snap_after):
+            logger.warning(
+                "checkpoint portfolio sync dropped approval interrupt for %s", run_id
+            )
+    elif values:
+        # END / completed checkpoints still have values. Do not update_state
+        # them — that is how a re-armed circular HITL loses interrupt before
+        # Command(resume=...). Caller should ensure_approval_interrupt first.
+        logger.info(
+            "skip checkpoint portfolio sync for %s; interrupt not pending", run_id
+        )
     return {
         "portfolio_version": version,
         "checkpoint_synced": synced,
@@ -458,6 +476,9 @@ def node_secretariat(state: WorkflowState) -> dict[str, Any]:
     _persist_handoff(run_id, secretariat, {"awaiting": "manager_decision"})
     # No artifact commitment before approval (plan §4.6)
     run_store.update_run_status(run_id, status="awaiting_approval", current_node="await_approval")
+    from app.services.review_gates import ensure_chain
+
+    ensure_chain(run_id)
     audit.append_event(
         run_id=run_id,
         event_type="approval.gate",
@@ -670,7 +691,13 @@ def _route_after_finalize(state: WorkflowState) -> str:
     decision = state.get("decision") or {}
     if decision.get("decision") == "revise":
         stage = decision.get("return_to_stage") or state.get("return_to_stage") or "learning_architect"
-        if stage in {"learning_architect", "challenger", "optimizer", "secretariat"}:
+        if stage in {
+            "parallel_intake",
+            "learning_architect",
+            "challenger",
+            "optimizer",
+            "secretariat",
+        }:
             return stage
         return "learning_architect"
     if decision.get("decision") == "approve":
@@ -700,6 +727,7 @@ def build_graph():
         "finalize",
         _route_after_finalize,
         {
+            "parallel_intake": "parallel_intake",
             "learning_architect": "learning_architect",
             "challenger": "challenger",
             "optimizer": "optimizer",
@@ -776,6 +804,9 @@ def execute_run(run_id: str, trigger: dict[str, Any], actor_id: str, actor_role:
     status = "awaiting_approval" if interrupted else result.get("status", "unknown")
     if interrupted:
         run_store.update_run_status(run_id, status="awaiting_approval", current_node="await_approval")
+        from app.services.review_gates import ensure_chain
+
+        ensure_chain(run_id)
     return {
         "run_id": run_id,
         "status": status,
@@ -786,19 +817,6 @@ def execute_run(run_id: str, trigger: dict[str, Any], actor_id: str, actor_role:
 
 def _thread_config(run_id: str) -> dict[str, Any]:
     return {"configurable": {"thread_id": f"tuntas-{run_id}"}}
-
-
-def _interrupt_pending(snap: Any) -> bool:
-    """True iff LangGraph thread is paused and can accept Command(resume=...)."""
-    if snap is None:
-        return False
-    if getattr(snap, "next", None):
-        return True
-    if getattr(snap, "tasks", None):
-        return True
-    if getattr(snap, "interrupts", None):
-        return True
-    return False
 
 
 def rearm_approval_interrupt(
@@ -814,11 +832,18 @@ def rearm_approval_interrupt(
     learning: dict[str, Any] | None = None,
     actor_id: str = "system",
     actor_role: str = "system",
+    reopen: bool = True,
+    reset_gates: bool = True,
 ) -> dict[str, Any]:
     """Re-seat a completed (or non-interrupted) thread at await_approval interrupt.
 
     Policy reopen updates DB portfolios then MUST call this — otherwise
     POST /decision's Command(resume=...) is a silent no-op after END.
+
+    reopen=False: circular shadow review after a prior COMMIT. Re-arms HITL
+    without selective_recompile / red-path mutation. reset_gates=True clears
+    department signatures (start of Playbook 2). reset_gates=False keeps them
+    (Management COMMIT after interrupt was dropped).
     """
     secretariat = agents.run_management_secretariat(
         strip_for_llm(trigger),
@@ -826,7 +851,11 @@ def rearm_approval_interrupt(
         challenger,
         _llm(),
     )
-    _persist_handoff(run_id, secretariat, {"awaiting": "manager_decision", "reopen": True})
+    _persist_handoff(
+        run_id,
+        secretariat,
+        {"awaiting": "manager_decision", "reopen": reopen},
+    )
 
     graph = get_graph()
     thread = _thread_config(run_id)
@@ -858,31 +887,118 @@ def rearm_approval_interrupt(
     )
     result = graph.invoke(None, config=thread)
     snap = graph.get_state(thread)
-    interrupted = _interrupt_pending(snap) or bool(result.get("__interrupt__"))
-    if not interrupted:
-        raise RuntimeError(
+    invoked_interrupt = _interrupt_pending(snap) or bool(result.get("__interrupt__"))
+    if not invoked_interrupt:
+        raise InterruptRearmError(
             f"Failed to re-arm approval interrupt for run {run_id}; "
             f"next={getattr(snap, 'next', None)}"
         )
     run_store.update_run_status(run_id, status="awaiting_approval", current_node="await_approval")
+    # Re-read the thread: the API flag must be the live pending state, not the invoke result.
+    snap = graph.get_state(thread)
+    pending = _interrupt_pending(snap)
+    if not pending:
+        raise InterruptRearmError(
+            f"Approval interrupt dropped after re-arm for run {run_id}; "
+            f"next={getattr(snap, 'next', None)}"
+        )
     audit.append_event(
         run_id=run_id,
         event_type="approval.gate.rearmed",
         actor_id=actor_id,
         actor_role=actor_role,
         payload={
-            "message": "LangGraph interrupt re-armed after policy reopen",
-            "next": list(snap.next or ()),
+            "message": (
+                "LangGraph interrupt re-armed after policy reopen"
+                if reopen
+                else "LangGraph interrupt re-armed for circular department review"
+            ),
+            "next": list(getattr(snap, "next", None) or ()),
+            "interrupt_pending": pending,
             "option_keys": [p.get("option_key") for p in portfolios],
         },
     )
-    return {
-        "run_id": run_id,
-        "status": "awaiting_approval",
-        "interrupted": True,
-        "current_node": "await_approval",
-        "secretariat": secretariat,
-    }
+    if reset_gates:
+        from app.services.review_gates import reset_chain
+
+        reset_chain(
+            run_id,
+            reason="langgraph_rearm" if reopen else "circular_shadow_hitl",
+            actor_id=actor_id,
+            actor_role=actor_role,
+        )
+    return rearm_result_from_snapshot(
+        run_id=run_id,
+        snap=snap,
+        secretariat=secretariat,
+        interrupt_pending=pending,
+    )
+
+
+def ensure_approval_interrupt(
+    run_id: str,
+    *,
+    actor_id: str = "system",
+    actor_role: str = "system",
+    reset_gates: bool = False,
+) -> dict[str, Any]:
+    """Make Command(resume=...) legal without wiping department signatures.
+
+    Playbook 2 COMMIT can see DB status=awaiting_approval while LangGraph is
+    already at END (re-arm dropped by checkpoint sync, or reload). This is
+    not reopen=true and does not mutate red paths.
+    """
+    graph = get_graph()
+    thread = _thread_config(run_id)
+    snap = graph.get_state(thread)
+    if _interrupt_pending(snap):
+        return {"rearmed": False, "already_pending": True, "interrupt_pending": True}
+
+    from app.services.cockpit import list_options_with_assignments
+    from app.services.recompile import _latest_handoff_payload
+
+    run = run_store.get_run(run_id)
+    if not run:
+        raise InterruptRearmError(f"run {run_id} not found")
+    options = list_options_with_assignments(run_id)
+    if not options:
+        raise InterruptRearmError(f"no portfolio options to re-seat interrupt for {run_id}")
+    portfolios = [
+        {
+            "option_key": o["option_key"],
+            "label": o["label"],
+            "total_cost_myr": o["total_cost_myr"],
+            "cost_per_employee_myr": o["cost_per_employee_myr"],
+            "coverage_score": o["coverage_score"],
+            "risk_reduction_score": o["risk_reduction_score"],
+            "operational_coverage": o["operational_coverage"],
+            "hard_constraint_ok": o["hard_constraint_ok"],
+            "solver_status": o.get("solver_status") or "UNKNOWN",
+            "assignments": o.get("assignments") or [],
+            "metrics": o.get("metrics") or {},
+            "challenger_flags": o.get("challenger_flags") or [],
+        }
+        for o in options
+    ]
+    portfolio_ids = {o["option_key"]: o["id"] for o in options}
+    vendor_payload = _latest_handoff_payload(run_id, "vendor_intelligence")
+    challenger_payload = _latest_handoff_payload(run_id, "challenger")
+    rearm_approval_interrupt(
+        run_id,
+        trigger=run.get("trigger_payload") or {},
+        portfolios=portfolios,
+        portfolio_ids=portfolio_ids,
+        challenger={"agent": "challenger", "output": challenger_payload},
+        vendor={"agent": "vendor_intelligence", "output": vendor_payload},
+        policy={"agent": "policy_compiler", "output": _latest_handoff_payload(run_id, "policy_compiler")},
+        diagnostic={"agent": "diagnostic", "output": _latest_handoff_payload(run_id, "diagnostic")},
+        learning={"agent": "learning_architect", "output": _latest_handoff_payload(run_id, "learning_architect")},
+        actor_id=actor_id,
+        actor_role=actor_role,
+        reopen=False,
+        reset_gates=reset_gates,
+    )
+    return {"rearmed": True, "already_pending": False, "interrupt_pending": True}
 
 
 def resume_with_decision(run_id: str, decision: dict[str, Any]) -> dict[str, Any]:
@@ -893,8 +1009,8 @@ def resume_with_decision(run_id: str, decision: dict[str, Any]) -> dict[str, Any
         if not _interrupt_pending(snap):
             raise RuntimeError(
                 "LangGraph thread is not paused at an approval interrupt. "
-                "After a completed run, call blast-radius/reopen (rearm) before /decision — "
-                "bare Command(resume=...) is a silent no-op once the graph has ENDed."
+                "This is not reopen=true and does not mutate red paths. "
+                "Retry Management commit after TUNTAS re-seats the approval node."
             )
         result = graph.invoke(Command(resume=decision), config=thread)
     except Exception as exc:
@@ -916,6 +1032,9 @@ def resume_with_decision(run_id: str, decision: dict[str, Any]) -> dict[str, Any
     status = "awaiting_approval" if interrupted else result.get("status", "unknown")
     if interrupted:
         run_store.update_run_status(run_id, status="awaiting_approval", current_node="await_approval")
+        from app.services.review_gates import ensure_chain
+
+        ensure_chain(run_id)
     return {
         "run_id": run_id,
         "status": status,
@@ -932,6 +1051,7 @@ def what_if_recalculate(
     total_budget: int | None = None,
     min_operational_coverage: float | None = None,
     apply: bool = True,
+    allow_coverage_relax: bool = True,
 ) -> dict[str, Any]:
     """Instant portfolio re-solve from stored trigger+vendor catalog (no LLM).
 
@@ -997,6 +1117,15 @@ def what_if_recalculate(
         max_cost_per_employee=max_per,
         total_budget=budget,
         min_operational_coverage=min_cov,
+        allow_coverage_relax=allow_coverage_relax,
+    )
+    any_ok = any(p.get("hard_constraint_ok") for p in portfolios)
+    solver_status = "FEASIBLE" if any_ok else "INFEASIBLE"
+    infeasible_reason = infeasible_reason_for(
+        portfolios,
+        min_operational_coverage=min_cov,
+        total_budget=budget,
+        max_cost_per_employee=max_per,
     )
     version = portfolio_version_hash(portfolios)
     checkpoint_synced = False
@@ -1018,6 +1147,8 @@ def what_if_recalculate(
                 "budget": budget,
                 "min_cov": min_cov,
                 "apply": True,
+                "allow_coverage_relax": allow_coverage_relax,
+                "solver_status": solver_status,
                 "portfolio_version": version,
                 "checkpoint_synced": checkpoint_synced,
             },
@@ -1033,6 +1164,8 @@ def what_if_recalculate(
                 "budget": budget,
                 "min_cov": min_cov,
                 "apply": False,
+                "allow_coverage_relax": allow_coverage_relax,
+                "solver_status": solver_status,
                 "portfolio_version": version,
             },
         )
@@ -1042,4 +1175,7 @@ def what_if_recalculate(
         "checkpoint_synced": checkpoint_synced,
         "portfolio_version": version,
         "portfolio_ids": portfolio_ids,
+        "solver_status": solver_status,
+        "infeasible_reason": infeasible_reason,
+        "allow_coverage_relax": allow_coverage_relax,
     }

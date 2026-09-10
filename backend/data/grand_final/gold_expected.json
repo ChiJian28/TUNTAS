@@ -1,0 +1,176 @@
+{
+  "schema_version": "gf-1",
+  "circular_id": "BNM-ORTC-2026-1",
+  "framework_code": "BNM_ORTC_2026",
+  "title": "Operational Resilience & Fraud-Escalation Training Currency",
+  "effective_date": "2026-10-01",
+  "issued_date": "2026-09-01",
+  "fixture_request_id": "MYS-GEN-2026-CAP-102",
+  "cohort_size": 10,
+  "notes": [
+    "Do NOT blast the whole BNM_RMiT framework. That would red-flag more than 3 courses.",
+    "New circular must create explicit clause→control→course edges for exactly the three stale codes.",
+    "GCX-REGTECH-ULTRA is a Challenger veto target, not an approved active programme. Exclude from stale/green gold.",
+    "Never invent 47 or 428 employees on stage. Counts below are the only legal demo numbers."
+  ],
+  "clauses": [
+    {
+      "clause_ref": "OR-TC-3.1",
+      "title": "Transaction-monitoring staff currency",
+      "maps_to_competency": "FSF_PR102",
+      "maps_to_control": "CTRL-AML-TM-CURRENCY",
+      "stale_course_code": "AICB-AML-OPS-2026"
+    },
+    {
+      "clause_ref": "OR-TC-3.2",
+      "title": "Mule-account and APP-fraud case-handling currency",
+      "maps_to_competency": "FSF_PR110",
+      "maps_to_control": "CTRL-FRAUD-MULE-CURRENCY",
+      "stale_course_code": "ABS-FRAUD-DET-2026"
+    },
+    {
+      "clause_ref": "OR-TC-3.3",
+      "title": "Incident-handler currency for fraud-origin events",
+      "maps_to_competency": "FSF_PR113",
+      "maps_to_control": "CTRL-IR-FRAUD-CURRENCY",
+      "stale_course_code": "ECIH-2026"
+    }
+  ],
+  "stale_courses": [
+    {
+      "code": "AICB-AML-OPS-2026",
+      "title": "AML/CFT Operational Controls Workshop",
+      "why_stale": "Teaches generic CDD/STR. Circular now requires a 2026 mule-account / instant-payment fraud escalation module that this outline does not contain."
+    },
+    {
+      "code": "ABS-FRAUD-DET-2026",
+      "title": "Automated Fraud Detection & Case Handling",
+      "why_stale": "Covers automated detection playbooks but not the new mandatory APP-fraud / mule mule-transfer handoff to incident response within 60 minutes."
+    },
+    {
+      "code": "ECIH-2026",
+      "title": "Certified Incident Handler (ECIH)",
+      "why_stale": "Generic incident-handler cert. Circular requires fraud-origin cyber events to use the bank's new mule-escalation runbook, which this course does not assess."
+    }
+  ],
+  "green_courses": [
+    {
+      "code": "ABS-PDPA-OPS-2026",
+      "title": "PDPA for Operations & Customer Service",
+      "why_green": "PDPA-only. No edge to OR-TC clauses. FEATURED live click.",
+      "featured_demo_click": true
+    },
+    {
+      "code": "AICB-AI-GOV-2026",
+      "title": "AI Governance for Financial Institutions",
+      "why_green": "AI governance / NSC07. Different domain from this circular."
+    },
+    {
+      "code": "IBFIM-ERM-2026",
+      "title": "Enterprise Risk & Control Assurance",
+      "why_green": "ERM. No fraud-escalation training-currency obligation."
+    }
+  ],
+  "excluded_from_active_portfolio": [
+    {
+      "code": "GCX-REGTECH-ULTRA",
+      "reason": "Challenger veto / missing DPA / US residency. Not an approved in-force programme. Must not appear as a 4th stale training programme."
+    }
+  ],
+  "affected_employees": [
+    {
+      "employee_ref": "EMP-SYN-001",
+      "pseudonym": "Ops-Alpha",
+      "unit": "Fraud Operations",
+      "reason": "FSF_PR102 + FSF_PR110"
+    },
+    {
+      "employee_ref": "EMP-SYN-002",
+      "pseudonym": "Ops-Bravo",
+      "unit": "Fraud Operations",
+      "reason": "FSF_PR110"
+    },
+    {
+      "employee_ref": "EMP-SYN-003",
+      "pseudonym": "Cmp-Charlie",
+      "unit": "Compliance",
+      "reason": "FSF_PR102"
+    },
+    {
+      "employee_ref": "EMP-SYN-004",
+      "pseudonym": "Cmp-Delta",
+      "unit": "Compliance",
+      "reason": "FSF_PR102"
+    },
+    {
+      "employee_ref": "EMP-SYN-005",
+      "pseudonym": "Frd-Echo",
+      "unit": "Fraud Investigation",
+      "reason": "FSF_PR110 + FSF_PR102 + FSF_PR113; completed ABS-FRAUD-DET-2026 so ECIH path is live. FEATURED red path.",
+      "featured_demo_click": true
+    },
+    {
+      "employee_ref": "EMP-SYN-006",
+      "pseudonym": "Frd-Foxtrot",
+      "unit": "Fraud Investigation",
+      "reason": "FSF_PR110"
+    },
+    {
+      "employee_ref": "EMP-SYN-010",
+      "pseudonym": "Reg-Juliet",
+      "unit": "Operations & Compliance",
+      "reason": "FSF_PR102 + FSF_PR110"
+    }
+  ],
+  "unaffected_employees": [
+    {
+      "employee_ref": "EMP-SYN-007",
+      "pseudonym": "Cs-Golf",
+      "unit": "Customer Service",
+      "reason": "PDPA / customer-service path. Not in OR-TC role list."
+    },
+    {
+      "employee_ref": "EMP-SYN-008",
+      "pseudonym": "Cs-Hotel",
+      "unit": "Customer Service",
+      "reason": "PDPA / customer-service path. Not in OR-TC role list."
+    },
+    {
+      "employee_ref": "EMP-SYN-009",
+      "pseudonym": "Ops-India",
+      "unit": "Enterprise Risk",
+      "reason": "ERM / AI governance gaps only (FSF_PR109, FSF_PR103, FSF_PR018). FEATURED green person.",
+      "featured_demo_click": true
+    }
+  ],
+  "expected_counts": {
+    "stale_programs": 3,
+    "green_programs": 3,
+    "affected_employees": 7,
+    "unaffected_employees": 3,
+    "false_positives": 0,
+    "false_negatives": 0
+  },
+  "acceptance": {
+    "found_stale_course_codes_must_equal": [
+      "AICB-AML-OPS-2026",
+      "ABS-FRAUD-DET-2026",
+      "ECIH-2026"
+    ],
+    "found_affected_employee_refs_must_equal": [
+      "EMP-SYN-001",
+      "EMP-SYN-002",
+      "EMP-SYN-003",
+      "EMP-SYN-004",
+      "EMP-SYN-005",
+      "EMP-SYN-006",
+      "EMP-SYN-010"
+    ],
+    "must_not_mark_stale": [
+      "ABS-PDPA-OPS-2026",
+      "AICB-AI-GOV-2026",
+      "IBFIM-ERM-2026",
+      "GCX-REGTECH-ULTRA"
+    ]
+  }
+}

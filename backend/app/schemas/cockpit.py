@@ -64,6 +64,9 @@ class WhatIfResponse(BaseModel):
     applied: bool = False
     checkpoint_synced: bool = False
     portfolio_version: str | None = None
+    solver_status: str | None = None
+    infeasible_reason: str | None = None
+    allow_coverage_relax: bool | None = None
 
 
 class RunRequestSummary(BaseModel):
@@ -295,6 +298,75 @@ class CockpitRunSummary(BaseModel):
     awaiting_approval: bool
 
 
+class ReviewGateView(BaseModel):
+    """TS: ReviewGateView — one department HITL step."""
+
+    id: str | None = None
+    gate_key: Literal["compliance", "procurement", "learning", "operations", "management"]
+    sequence: int
+    label: str
+    prompt: str
+    status: str
+    decision: str | None = None
+    rationale: str | None = None
+    conditions: list[Any] = Field(default_factory=list)
+    actor_id: str | None = None
+    actor_role: str | None = None
+    input_hash: str | None = None
+    return_to_stage: str | None = None
+    decided_at: datetime | None = None
+    updated_at: datetime | None = None
+    skipped: bool = False
+    commits: bool = False
+    allowed_roles: list[str] = Field(default_factory=list)
+    revise_stage: str | None = None
+    can_decide: bool = False
+    blocked_by: str | None = None
+    missing_priors: list[str] = Field(default_factory=list)
+
+
+class ReviewChainView(BaseModel):
+    """TS: ReviewChainView"""
+
+    run_id: str
+    path: Literal["capability", "circular"]
+    current_gate: str | None = None
+    commit_unlocked: bool = False
+    commit_blocked_by: list[str] = Field(default_factory=list)
+    run_status: str
+    gates: list[ReviewGateView] = Field(default_factory=list)
+    message: str | None = None
+    langgraph_resumed: bool | None = None
+    decided_gate: str | None = None
+    decision: str | None = None
+    input_hash: str | None = None
+
+
+class WorkbuddyBriefResponse(BaseModel):
+    """TS: WorkbuddyBriefResponse — paste-ready MCP/WorkBuddy gate materials."""
+
+    instruction: str = ""
+    chat_markdown: str = ""
+    run_id: str
+    view: str
+    path: Literal["capability", "circular"] | None = None
+    current_gate: str | None = None
+    commit_unlocked: bool = False
+    commit_blocked_by: list[str] = Field(default_factory=list)
+    run_status: str | None = None
+    dispatch_expert_id: str | None = None
+    dispatch_expert_name: str | None = None
+    dispatch_action: str = "wait_human_gate"
+    wait_line: str = ""
+    human_commands: list[str] = Field(default_factory=list)
+    evidence_url: str | None = None
+    review_url: str | None = None
+    overview_url: str | None = None
+    ok: bool = True
+    detail: str | None = None
+    model_config = {"extra": "allow"}
+
+
 class CockpitBundle(BaseModel):
     """TS: CockpitBundle — preferred first-paint endpoint for the decision cockpit."""
 
@@ -309,6 +381,7 @@ class CockpitBundle(BaseModel):
     artifacts: list[ArtifactView] = Field(default_factory=list)
     sessions: list[TrainingSessionView] = Field(default_factory=list)
     approval: ApprovalDecisionView | None = None
+    review: ReviewChainView | None = None
     employee_count: int
     portfolio_version: str | None = None
 
@@ -321,6 +394,10 @@ class BlastRadiusResponse(BaseModel):
     affected_nodes: list[dict[str, Any]] = Field(default_factory=list)
     affected_employees: list[str] = Field(default_factory=list)
     affected_courses: list[str] = Field(default_factory=list)
+    expected_vs_found: dict[str, Any] | None = None
+    featured_red: dict[str, Any] | None = None
+    featured_green: dict[str, Any] | None = None
+    walk: str | None = None
     model_config = {"extra": "allow"}
 
 
@@ -335,6 +412,67 @@ class BlastReopenResponse(BaseModel):
     langgraph_interrupt_rearmed: bool = False
     options: list[dict[str, Any]] = Field(default_factory=list)
     message: str
+
+
+class IngestCircularResponse(BaseModel):
+    """TS: IngestCircularResponse"""
+
+    run_id: str
+    framework_code: str
+    circular_id: str
+    title: str | None = None
+    source: str | None = None
+    use_gold_mapping: bool = True
+    membership_source: str | None = None
+    created: dict[str, Any] = Field(default_factory=dict)
+    message: str
+    model_config = {"extra": "allow"}
+
+
+class ImpactBriefResponse(BaseModel):
+    """TS: ImpactBriefResponse — short JSON for WorkBuddy chat."""
+
+    chat_markdown: str = ""
+    run_id: str
+    framework_code: str
+    headline: str
+    expected_vs_found: dict[str, Any] = Field(default_factory=dict)
+    action_brief: list[dict[str, Any]] = Field(default_factory=list)
+    wait_state: str = "Nothing has been scheduled yet."
+    approval: str = "awaiting_human"
+    stale_courses: list[dict[str, Any]] = Field(default_factory=list)
+    green_courses: list[dict[str, Any]] = Field(default_factory=list)
+    affected_employees: list[dict[str, Any]] = Field(default_factory=list)
+    unaffected_employees: list[dict[str, Any]] = Field(default_factory=list)
+    featured_red: dict[str, Any] | None = None
+    featured_green: dict[str, Any] | None = None
+    model_config = {"extra": "allow"}
+
+
+class EvidenceSpineLinkResponse(BaseModel):
+    """TS: EvidenceSpineLinkResponse"""
+
+    run_id: str
+    framework_code: str | None = None
+    evidence_url: str
+    headline: str
+    expected_vs_found: dict[str, Any] = Field(default_factory=dict)
+    featured_red: dict[str, Any] | None = None
+    featured_green: dict[str, Any] | None = None
+    model_config = {"extra": "allow"}
+
+
+class AssessPolicyChangeResponse(BaseModel):
+    """TS: AssessPolicyChangeResponse"""
+
+    run_id: str
+    framework_code: str
+    reopen: bool = False
+    langgraph_interrupt_rearmed: bool = False
+    radius: dict[str, Any] = Field(default_factory=dict)
+    expected_vs_found: dict[str, Any] | None = None
+    recompiled: dict[str, Any] | None = None
+    model_config = {"extra": "allow"}
 
 
 class AdaptiveSessionStartResponse(BaseModel):

@@ -14,8 +14,14 @@ def unit_max_concurrent(unit_size: int, min_operational_coverage: float) -> int:
     if unit_size == 1:
         return 1  # single-person unit may train (coverage deferred to other units)
     must_remain = max(1, int(math.ceil(unit_size * min_operational_coverage)))
-    must_remain = min(must_remain, unit_size - 1)  # always allow at least one trainee
-    return unit_size - must_remain
+    # At normal planning floors, always allow at least one trainee so tiny units
+    # are not frozen. At a stress floor (≥ 0.95) the target can consume the
+    # whole unit — that is the live INFEASIBLE beat (coverage 0.99).
+    if min_operational_coverage < 0.95:
+        must_remain = min(must_remain, unit_size - 1)
+    else:
+        must_remain = min(must_remain, unit_size)
+    return max(0, unit_size - must_remain)
 
 
 def evaluate_schedule_coverage(

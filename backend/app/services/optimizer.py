@@ -304,6 +304,46 @@ def build_portfolios(
     }
 
 
+def _mark_infeasible(portfolios: list[dict[str, Any]], reason: str) -> list[dict[str, Any]]:
+    for p in portfolios:
+        if p.get("hard_constraint_ok"):
+            continue
+        p["solver_status"] = "INFEASIBLE"
+        metrics = dict(p.get("metrics") or {})
+        metrics.setdefault("infeasible_reason", reason)
+        p["metrics"] = metrics
+    return portfolios
+
+
+def infeasible_reason_for(
+    portfolios: list[dict[str, Any]],
+    *,
+    min_operational_coverage: float,
+    total_budget: int,
+    max_cost_per_employee: int,
+) -> str | None:
+    if any(p.get("hard_constraint_ok") for p in portfolios):
+        return None
+    chunks: list[str] = []
+    for p in portfolios:
+        metrics = p.get("metrics") or {}
+        err = metrics.get("error") or metrics.get("infeasible_reason") or metrics.get("reason")
+        if err:
+            chunks.append(str(err))
+        if metrics.get("schedule_feasible") is False:
+            chunks.append(
+                f"Q3 schedule cannot keep operational coverage ≥ {min_operational_coverage:.0%} "
+                "for this 10-person cohort."
+            )
+    if not chunks:
+        chunks.append(
+            f"OR-Tools found no feasible portfolio under RM{total_budget} total, "
+            f"RM{max_cost_per_employee}/employee, coverage ≥ {min_operational_coverage:.0%}."
+        )
+    unique = list(dict.fromkeys(chunks))
+    return " ".join(unique)
+
+
 def build_three_portfolios(
     employees: list[dict[str, Any]],
     courses: list[dict[str, Any]],
@@ -311,6 +351,7 @@ def build_three_portfolios(
     max_cost_per_employee: int,
     total_budget: int,
     min_operational_coverage: float,
+    allow_coverage_relax: bool = True,
 ) -> list[dict[str, Any]]:
     specs = [
         ("cost", "Budget Saver", "Minimize spend while closing priority gaps"),
@@ -332,10 +373,17 @@ def build_three_portfolios(
             out.append({"option_key": key, "label": label, "blurb": blurb, **result})
         return out
 
+    # Stress / WorkBuddy what-if: never hide INFEASIBLE by quietly dropping coverage 0.2.
+    relax = bool(allow_coverage_relax) and float(min_operational_coverage) < 0.90
+
     portfolios = _solve(min_operational_coverage)
     # Demo/small-cohort backoff: if every option fails schedule hard-constraints,
-    # retry once at a slightly lower floor so golden path is not permanently blocked.
-    if portfolios and not any(p.get("hard_constraint_ok") for p in portfolios):
+    # retry once at a slightly lower floor so golden *planning* path is not blocked.
+    if (
+        relax
+        and portfolios
+        and not any(p.get("hard_constraint_ok") for p in portfolios)
+    ):
         relaxed = max(0.5, float(min_operational_coverage) - 0.2)
         if relaxed + 1e-9 < float(min_operational_coverage):
             retry = _solve(relaxed)
@@ -346,4 +394,20 @@ def build_three_portfolios(
                     metrics["coverage_floor_used"] = relaxed
                     p["metrics"] = metrics
                 return retry
+    if not any(p.get("hard_constraint_ok") for p in portfolios):
+        reason = infeasible_reason_for(
+            portfolios,
+            min_operational_coverage=min_operational_coverage,
+            total_budget=total_budget,
+            max_cost_per_employee=max_cost_per_employee,
+        ) or (
+            f"INFEASIBLE under coverage ≥ {min_operational_coverage:.0%} "
+            f"and RM{total_budget} total. No silent coverage backoff."
+        )
+        return _mark_infeasible(portfolios, reason)
+    for p in portfolios:
+        if p.get("hard_constraint_ok"):
+            continue
+        if str(p.get("solver_status") or "").upper() in {"OPTIMAL", "FEASIBLE", ""}:
+            p["solver_status"] = "INFEASIBLE"
     return portfolios

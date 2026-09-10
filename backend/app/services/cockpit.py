@@ -474,6 +474,16 @@ def cockpit_bundle(run_id: str) -> dict[str, Any] | None:
         "artifacts": artifacts,
         "sessions": list_sessions(run_id),
         "approval": latest_approval(run_id),
+        "review": _safe_review(run_id),
         "employee_count": run["employee_count"],
         "portfolio_version": version,
     }
+
+
+def _safe_review(run_id: str) -> dict[str, Any] | None:
+    try:
+        from app.services.review_gates import get_chain
+
+        return get_chain(run_id)
+    except Exception:  # noqa: BLE001 — cockpit first-paint must not die on gate init
+        return None
